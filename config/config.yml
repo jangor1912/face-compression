@@ -1,0 +1,8 @@
+video:
+  resolution: 1080p
+  mime_type: video/mp4
+
+directory:
+  videos: data/videos
+  photos: data/photos
+  faces: data/faces

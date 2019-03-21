@@ -2,6 +2,7 @@ import math
 import os
 
 import numpy as np
+from PIL import Image
 
 
 class ImageHelpers(object):
@@ -31,3 +32,10 @@ class ImageHelpers(object):
             bottom += expansion
             right += expansion
         return top, right, bottom, left
+
+    @classmethod
+    def crop_image(cls, image_array, locations):
+        top, right, bottom, left = locations
+        cropped_image = image_array[top:bottom, left:right]
+        return cropped_image
+
