@@ -1,8 +1,6 @@
 import os
 
 import cv2
-import face_recognition
-from PIL import Image
 
 from config.config import get_config
 from face_detection.face_detector import FaceDetector
@@ -16,7 +14,9 @@ class Deconstructor(object):
         self.face_detector = FaceDetector()
 
     def after_download(self, stream, file_handle):
-        return
+        video_path = file_handle.name
+        self.find_faces_in_video(video_path)
+        os.remove(video_path)
 
     def video_to_images(self, video_path):
         vidcap = cv2.VideoCapture(video_path)
