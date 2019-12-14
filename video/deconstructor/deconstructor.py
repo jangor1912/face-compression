@@ -2,11 +2,11 @@ import os
 
 import cv2
 
-from config.config import get_config
+from config.config import Config
 from face_detection.face_detector import FaceDetector
 from face_detection.misc.image_helpers import ImageHelpers
 
-CONF = get_config()
+CONF = Config().CONF
 
 
 class Deconstructor(object):
@@ -27,6 +27,7 @@ class Deconstructor(object):
             success, image = vidcap.read()
             print('Read a new frame: ', success)
             count += 1
+        vidcap.release()
 
     def find_faces_in_video(self, video_path, skip=60, threshold=5):
         directory_path = os.path.join(CONF["directory"]["faces"], os.path.basename(video_path))

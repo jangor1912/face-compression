@@ -6,3 +6,6 @@ directory:
   videos: data/videos
   photos: data/photos
   faces: data/faces
+
+path:
+  cnn_face_model: models/cnn-face-model/mmod_human_face_detector.dat

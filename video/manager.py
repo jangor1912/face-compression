@@ -2,14 +2,14 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 import utils
-from config.config import get_config
+from config.config import Config
 from video.deconstructor.deconstructor import Deconstructor
 from video.downloader.downloader import Downloader
 
 
 class VideoManager(object):
     def __init__(self, max_results=50):
-        config = get_config()
+        config = Config().CONF
         self.develper_key = config['youtube']['developer_key']
         self.youtube_api_service_name = 'youtube'
         self.youtube_api_version = 'v3'
