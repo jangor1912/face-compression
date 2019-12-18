@@ -8,6 +8,7 @@ CONF = Config().CONF
 
 class FaceDetector(object):
     def __init__(self, model="hog"):
+        self.model = model
         if model == "hog":
             self.face_detector = dlib.get_frontal_face_detector()
         else:

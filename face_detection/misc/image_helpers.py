@@ -34,7 +34,20 @@ class ImageHelpers(object):
 
     @classmethod
     def crop_image(cls, image_array, locations):
-        top, right, bottom, left = locations
+        top, left, bottom, right = locations
         cropped_image = image_array[top:bottom, left:right]
         return cropped_image
 
+    @classmethod
+    def get_location_center(cls, location):
+        top, left, bottom, right = location
+        y_center = int((right + left)/2)
+        x_center = int((top + bottom)/2)
+        return x_center, y_center
+
+    @classmethod
+    def get_image_center(cls, image_array):
+        img_height, img_width, _ = np.array(image_array).shape
+        x_center = int(img_height/2)
+        y_center = int(img_width/2)
+        return x_center, y_center
