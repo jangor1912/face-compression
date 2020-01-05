@@ -7,6 +7,7 @@ import imutils
 import numpy as np
 
 from config.config import Config
+from face_detection.misc.image_helpers import ImageHelpers
 
 CONF = Config().CONF
 
@@ -81,8 +82,39 @@ class FaceLandmarksPredictorFAN(object):
         return image
 
     def detect_landmarks(self, image):
+        img_height, img_width, _ = np.array(image).shape
+        final_predictions = []
         predictions = self.fa.get_landmarks(image)
-        return predictions
+        if predictions:
+            for prediction in predictions:
+                current_prediction = []
+                for x, y in prediction:
+                    if 0 <= x <= img_height and 0 <= y <= img_width:
+                        current_prediction.append((x, y))
+                if current_prediction:
+                    final_predictions.append(current_prediction)
+        return final_predictions
+
+    def detect_face(self, image, predictions):
+        min_x = 6000
+        min_y = 6000
+        max_x = -1
+        max_y = -1
+        for prediction in predictions:
+            for x, y in prediction:
+                min_x = min(min_x, x)
+                min_y = min(min_y, y)
+                max_x = max(max_x, x)
+                max_y = max(max_y, y)
+
+        # expand image
+        top, left, bottom, right = min_y, min_x, max_y, max_x
+        face_location = (top, left, bottom, right)
+
+        # make crop square
+        face_location = ImageHelpers.get_square(image, face_location)
+        face_location = ImageHelpers.expand_image(image, face_location, expansion_factor=0.1)
+        return face_location
 
 
 def main():
@@ -103,7 +135,10 @@ if __name__ == "__main__":
     predictor = FaceLandmarksPredictorFAN()
     # image = place_landmarks(image_path)
     image = cv2.imread(image_path)
-    image = predictor.place_landmarks(image)
+    predictions = predictor.detect_landmarks(image)
+    image = predictor.place_landmarks(image, predictions)
+    face_location = predictor.detect_face(image, predictions)
+    image = ImageHelpers.crop_image(image, face_location)
     # show the output image with the face detections + facial landmarks
     cv2.imshow("Output", image)
     cv2.waitKey(0)

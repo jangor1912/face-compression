@@ -18,8 +18,10 @@ class FaceDetector(object):
         rectangles = self.face_detector(image, 1)
         face_locations = []
         for rectangle in rectangles:
-            face_locations.append((rectangle.top(), rectangle.right(),
-                                   rectangle.bottom(), rectangle.left()))
+            if self.model != "hog":
+                rectangle = rectangle.rect
+            face_locations.append((rectangle.top(), rectangle.left(),
+                                   rectangle.bottom(), rectangle.right()))
 
         locations = []
         for face_location in face_locations:
