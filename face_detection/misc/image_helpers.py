@@ -2,6 +2,7 @@ import math
 import os
 
 import numpy as np
+from PIL import Image
 
 
 class ImageHelpers(object):
@@ -11,12 +12,35 @@ class ImageHelpers(object):
             os.utime(path, None)
 
     @classmethod
+    def normalize_points(cls, point1, point2):
+        x1, y1 = point1
+        x2, y2 = point2
+        top = min(x1, x2)
+        bottom = max(x1, x2)
+        left = min(y1, y2)
+        right = min(y1, y2)
+        return top, left, bottom, right
+
+    @classmethod
     def get_diagonal(cls, position_tuple):
         top, left, bottom, right = position_tuple
         height = bottom - top
         width = right - left
         diagonal_len = math.sqrt(math.pow(height, 2) + math.pow(width, 2))
         return diagonal_len
+
+    @classmethod
+    def zoom(cls, img, zoom):
+        """"
+        'img' - Image loaded from PIL
+        """
+        w, h = img.size
+        x = h / 2
+        y = w / 2
+        zoom2 = zoom * 2
+        img = img.crop((x - w / zoom2, y - h / zoom2,
+                        x + w / zoom2, y + h / zoom2))
+        return img.resize((w, h), Image.LANCZOS)
 
     @classmethod
     def expand_image(cls, image, face_location, expansion_factor=0.2):

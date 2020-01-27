@@ -1,9 +1,11 @@
 import argparse
+import collections
 
 import cv2
 import dlib
 import face_alignment
 import imutils
+import matplotlib.pyplot as plt
 import numpy as np
 
 from config.config import Config
@@ -69,8 +71,19 @@ class FaceLandmarksPredictor(object):
 
 
 class FaceLandmarksPredictorFAN(object):
-    def __init__(self, device='cpu'):
-        self.fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False, device=device)
+    def __init__(self, device='cpu', _type='2d', flip_input=False):
+        self._type = face_alignment.LandmarksType._2D if _type == '2d' else face_alignment.LandmarksType._3D
+        self.fa = face_alignment.FaceAlignment(self._type, flip_input=flip_input, device=device)
+        pred_type = collections.namedtuple('prediction_type', ['slice', 'color'])
+        self.pred_types = {'face': pred_type(slice(0, 17), (0.682, 0.780, 0.909, 0.5)),
+                           'eyebrow1': pred_type(slice(17, 22), (1.0, 0.498, 0.055, 0.4)),
+                           'eyebrow2': pred_type(slice(22, 27), (1.0, 0.498, 0.055, 0.4)),
+                           'nose': pred_type(slice(27, 31), (0.345, 0.239, 0.443, 0.4)),
+                           'nostril': pred_type(slice(31, 36), (0.345, 0.239, 0.443, 0.4)),
+                           'eye1': pred_type(slice(36, 42), (0.596, 0.875, 0.541, 0.3)),
+                           'eye2': pred_type(slice(42, 48), (0.596, 0.875, 0.541, 0.3)),
+                           'lips': pred_type(slice(48, 60), (0.596, 0.875, 0.541, 0.3)),
+                           'teeth': pred_type(slice(60, 68), (0.596, 0.875, 0.541, 0.4))}
 
     def place_landmarks(self, image, predictions):
         # loop over the (x, y)-coordinates for the facial landmarks
@@ -95,6 +108,14 @@ class FaceLandmarksPredictorFAN(object):
                     final_predictions.append(current_prediction)
         return final_predictions
 
+    def detect_one_face_landmark(self, image):
+        result = None
+        try:
+            result = self.fa.get_landmarks(image)[-1]
+        except (IndexError, TypeError):
+            print("No faces detected!")
+        return result
+
     def detect_face(self, image, predictions):
         min_x = 6000
         min_y = 6000
@@ -116,6 +137,45 @@ class FaceLandmarksPredictorFAN(object):
         face_location = ImageHelpers.expand_image(image, face_location, expansion_factor=0.1)
         return face_location
 
+    def predict_and_plot(self, image):
+        preds = self.fa.get_landmarks(image)
+        preds = preds[-1]
+
+        # 2D-Plot
+        plot_style = dict(marker='o',
+                          markersize=4,
+                          linestyle='-',
+                          lw=2)
+
+        fig = plt.figure(figsize=plt.figaspect(.5))
+        ax = fig.add_subplot(1, 2, 1)
+        ax.imshow(image)
+
+        for pred_type in self.pred_types.values():
+            ax.plot(preds[pred_type.slice, 0],
+                    preds[pred_type.slice, 1],
+                    color=pred_type.color, **plot_style)
+
+        ax.axis('off')
+
+        # 3D-Plot
+        # ax = fig.add_subplot(1, 2, 2, projection='3d')
+        # surf = ax.scatter(preds[:, 0] * 1.2,
+        #                   preds[:, 1],
+        #                   preds[:, 2],
+        #                   c='cyan',
+        #                   alpha=1.0,
+        #                   edgecolor='b')
+        #
+        # for pred_type in pred_types.values():
+        #     ax.plot3D(preds[pred_type.slice, 0] * 1.2,
+        #               preds[pred_type.slice, 1],
+        #               preds[pred_type.slice, 2], color='blue')
+        #
+        # ax.view_init(elev=90., azim=90.)
+        # ax.set_xlim(ax.get_xlim()[::-1])
+        plt.show()
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -132,13 +192,14 @@ def main():
 
 if __name__ == "__main__":
     image_path = "/home/jan/PycharmProjects/face-compression/data/images/my_face.png"
-    predictor = FaceLandmarksPredictorFAN()
+    predictor = FaceLandmarksPredictorFAN(_type='2d')
     # image = place_landmarks(image_path)
     image = cv2.imread(image_path)
-    predictions = predictor.detect_landmarks(image)
-    image = predictor.place_landmarks(image, predictions)
-    face_location = predictor.detect_face(image, predictions)
-    image = ImageHelpers.crop_image(image, face_location)
-    # show the output image with the face detections + facial landmarks
-    cv2.imshow("Output", image)
-    cv2.waitKey(0)
+    predictor.predict_and_plot(image)
+
+    # image = predictor.place_landmarks(image, predictions)
+    # face_location = predictor.detect_face(image, predictions)
+    # image = ImageHelpers.crop_image(image, face_location)
+    # # show the output image with the face detections + facial landmarks
+    # cv2.imshow("Output", image)
+    # cv2.waitKey(0)
