@@ -56,8 +56,9 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
             # frame = cv2.resize(frame, (int(img_width * 0.3), int(img_height * 0.3)), interpolation=cv2.INTER_AREA)
 
             prediction = predictor.detect_one_face_landmark(frame)
-            predictions = [prediction] if prediction else None
-            image1 = predictor.place_landmarks(frame, predictions)
+            # predictions = [prediction] if prediction else None
+            # image1 = predictor.place_landmarks(frame, predictions)
+            image1 = frame
             image = face_metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
             face_locations = face_detector.detect_faces(frame)
             if face_locations:
@@ -90,12 +91,12 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
                                 int(last_location[2] + current_movement_speed[1] + current_resize_speed / 2),
                                 int(last_location[3] + current_movement_speed[0] + current_resize_speed / 2))
             last_location = current_location
-            print("\tCurrent location = {}".format(current_location))
-            print("\tFace location = {}".format(face_location))
-            print("\tCurrent movement speed = {}".format(current_movement_speed))
-            print("\tOptimal movement speed = {}".format(optimal_movement_speed))
-            print("\tCurrent resize speed = {}".format(current_resize_speed))
-            print("\tOptimal resize speed = {}".format(optimal_resize_speed))
+            # print("\tCurrent location = {}".format(current_location))
+            # print("\tFace location = {}".format(face_location))
+            # print("\tCurrent movement speed = {}".format(current_movement_speed))
+            # print("\tOptimal movement speed = {}".format(optimal_movement_speed))
+            # print("\tCurrent resize speed = {}".format(current_resize_speed))
+            # print("\tOptimal resize speed = {}".format(optimal_resize_speed))
 
             # current_location = ImageHelpers.get_square(image, current_location)
             image = ImageHelpers.crop_image(image, current_location)
