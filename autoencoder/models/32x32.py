@@ -1,7 +1,8 @@
 from tensorflow.python.keras import Model, Input
-from tensorflow.python.keras.layers import MaxPool2D, Conv2D, GlobalAveragePooling2D, Reshape, UpSampling2D
+from tensorflow.python.keras import Model, Input
+from tensorflow.python.keras.layers import Conv2D, GlobalAveragePooling2D, Reshape, MaxPool3D, UpSampling2D
 
-from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer
+from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu
 
 
 class Architecture(object):
@@ -9,7 +10,7 @@ class Architecture(object):
     generic architecture template
     """
 
-    def __init__(self, inputShape=None, batchSize=None, latentSize=None):
+    def __init__(self, inputShape=None, batchSize=None, latentSize=None, framesNo=None):
         """
         params:
         ---------
@@ -24,6 +25,7 @@ class Architecture(object):
         self.inputShape = inputShape
         self.batchSize = batchSize
         self.latentSize = latentSize
+        self.framesNo = framesNo
 
         self.model = self.Build()
 
@@ -41,7 +43,7 @@ class LSTMEncoder32(Architecture):
         https://github.com/pjreddie/darknet/blob/master/cfg/darknet19.cfg
         """
 
-    def __init__(self, inputShape=(32, 32, 3), batchSize=16,
+    def __init__(self, inputShape=(32, 32, 3), batchSize=1, framesNo=8,
                  latentSize=512, latentConstraints='bvae', beta=100., capacity=512.,
                  randomSample=True):
         """
@@ -68,20 +70,24 @@ class LSTMEncoder32(Architecture):
         self.beta = beta
         self.latentCapacity = capacity
         self.randomSample = randomSample
-        super().__init__(inputShape, batchSize, latentSize)
+        self.framesNo = framesNo
+        self.realInputShape = (framesNo,) + inputShape
+        super().__init__(inputShape, batchSize, latentSize, framesNo)
 
     def Build(self):
         # create the input layer for feeding the network
-        inLayer = Input(self.inputShape, self.batchSize)
-        net = LSTMConvBnRelu(lstm_kernels=[(3, 64)], conv_kernels=[(3, 128), (3, 128)])(inLayer)
-        net = MaxPool2D((2, 2), strides=(2, 2))(net)
+        inLayer = Input(self.realInputShape, self.batchSize)
+        net = LSTMConvBnRelu(lstm_kernels=[(3, 64)], conv_kernels=[(3, 128), (1, 64), (3, 128)])(inLayer)
+        net = MaxPool3D(pool_size=(2, 2, 2), strides=(2, 2, 2))(net)
 
-        net = LSTMConvBnRelu(lstm_kernels=[(3, 128)], conv_kernels=[(3, 256), (3, 256)])(net)
-        net = MaxPool2D((2, 2), strides=(2, 2))(net)
+        net = LSTMConvBnRelu(lstm_kernels=[(3, 128)], conv_kernels=[(3, 256), (1, 128), (3, 256)])(net)
+        net = MaxPool3D(pool_size=(2, 2, 2), strides=(2, 2, 2))(net)
 
-        net = LSTMConvBnRelu(lstm_kernels=[(3, 256)], conv_kernels=[(3, 512), (3, 512)])(net)
-        net = MaxPool2D((2, 2), strides=(2, 2))(net)
-
+        net = LSTMConvBnRelu(lstm_kernels=[(3, 256)], conv_kernels=[(3, 512), (1, 256), (3, 512)])(net)
+        net = MaxPool3D(pool_size=(2, 2, 2), strides=(2, 2, 2))(net)
+        # reshape for sequence removal
+        # there should be only one element of sequence at this point so it is just dimension reduction
+        net = SequencesToBatchesLayer()(net)
         # variational encoder output (distributions)
         mean = Conv2D(filters=self.latentSize, kernel_size=(1, 1),
                       padding='same')(net)
@@ -97,7 +103,7 @@ class LSTMEncoder32(Architecture):
 
 
 class LSTMDecoder32(Architecture):
-    def __init__(self, inputShape=(32, 32, 3), batchSize=16, latentSize=512):
+    def __init__(self, inputShape=(32, 32, 3), batchSize=1, latentSize=512):
         super().__init__(inputShape, batchSize, latentSize)
 
     def Build(self):
@@ -105,44 +111,21 @@ class LSTMDecoder32(Architecture):
         inLayer = Input([self.latentSize], self.batchSize)
         # reexpand the input from flat:
         net = Reshape((1, 1, self.latentSize))(inLayer)
-        # darknet downscales input by a factor of 32, so we upsample to the second to last output shape:
-        net = UpSampling2D((self.inputShape[0] // 32, self.inputShape[1] // 32))(net)
 
-        # TODO try inverting num filter arangement (e.g. 512, 1204, 512, 1024, 512)
-        # and also try (1, 3, 1, 3, 1) for the filter shape
-        net = ConvBnLRelu(1024, kernelSize=3)(net)
-        net = ConvBnLRelu(512, kernelSize=1)(net)
-        net = ConvBnLRelu(1024, kernelSize=3)(net)
-        net = ConvBnLRelu(512, kernelSize=1)(net)
-        net = ConvBnLRelu(1024, kernelSize=3)(net)
+        net = UpSampling2D(size=(4, 4))(net)
+        net = ConvBnRelu(conv_kernels=[(3, 256), (1, 128), (3, 256)])(net)
 
-        net = UpSampling2D((2, 2))(net)
-        net = ConvBnLRelu(512, kernelSize=3)(net)
-        net = ConvBnLRelu(256, kernelSize=1)(net)
-        net = ConvBnLRelu(512, kernelSize=3)(net)
-        net = ConvBnLRelu(256, kernelSize=1)(net)
-        net = ConvBnLRelu(512, kernelSize=3)(net)
+        net = UpSampling2D(size=(2, 2))(net)
+        net = ConvBnRelu(conv_kernels=[(3, 128), (1, 64), (3, 128)])(net)
 
-        net = UpSampling2D((2, 2))(net)
-        net = ConvBnLRelu(256, kernelSize=3)(net)
-        net = ConvBnLRelu(128, kernelSize=1)(net)
-        net = ConvBnLRelu(256, kernelSize=3)(net)
+        net = UpSampling2D(size=(2, 2))(net)
+        net = ConvBnRelu(conv_kernels=[(3, 64), (1, 32), (3, 64)])(net)
 
-        net = UpSampling2D((2, 2))(net)
-        net = ConvBnLRelu(128, kernelSize=3)(net)
-        net = ConvBnLRelu(64, kernelSize=1)(net)
-        net = ConvBnLRelu(128, kernelSize=3)(net)
+        net = UpSampling2D(size=(2, 2))(net)
+        net = ConvBnRelu(conv_kernels=[(3, 32), (1, 16), (3, 32)])(net)
 
-        net = UpSampling2D((2, 2))(net)
-        net = ConvBnLRelu(64, kernelSize=3)(net)
-
-        net = UpSampling2D((2, 2))(net)
-        net = ConvBnLRelu(64, kernelSize=1)(net)
-        net = ConvBnLRelu(32, kernelSize=3)(net)
-        # net = ConvBnLRelu(3, kernelSize=1)(net)
         net = Conv2D(filters=self.inputShape[-1], kernel_size=(1, 1),
                      padding='same')(net)
-
         return Model(inLayer, net)
 
 
@@ -152,3 +135,14 @@ class AutoEncoder(object):
         self.decoder = decoder.model
 
         self.ae = Model(self.encoder.inputs, self.decoder(self.encoder.outputs))
+
+
+def test():
+    d19e = LSTMEncoder32()
+    d19e.model.summary()
+    d19d = LSTMDecoder32()
+    d19d.model.summary()
+
+
+if __name__ == '__main__':
+    test()

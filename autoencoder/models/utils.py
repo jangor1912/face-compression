@@ -9,35 +9,38 @@ THE UNLICENSE
 from typing import List
 
 import tensorflow as tf
-import tensorflow.python.keras as k
-from tensorflow.python.keras.layers import (Layer)
-
-DEFAULT_NET_DOWN_PARAMS = {
-    'down_conv_kernels': [
-        [(5, 128), (5, 128)],
-        [(5, 256), (5, 256)],
-        [(5, 256), (5, 256)],
-        [(5, 512), (5, 512)],
-    ],
-    'lstm_kernels': [
-        [(5, 128)],
-        [(5, 256)],
-        [(5, 256)],
-        [(5, 512)],
-    ],
-    'up_conv_kernels': [
-        [(5, 256), (5, 256)],
-        [(5, 128), (5, 128)],
-        [(5, 64), (5, 64)],
-        [(5, 32), (5, 32), (1, 3)],
-    ],
-
-}
+from tensorflow.python import keras as K
 
 
-class LSTMConvBnRelu(k.Model):
+class ConvBnRelu(K.Model):
 
-    def __init__(self, lstm_kernels: List[tuple], conv_kernels: List[tuple], stride=2, data_format='NCHW'):
+    def __init__(self, conv_kernels: List[tuple], stride=1, data_format='NCHW'):
+        super(ConvBnRelu, self).__init__()
+        data_format_keras = 'channels_last'
+        channel_axis = 1 if data_format[1] == 'C' else -1
+        self.Conv = []
+        self.BN = []
+        self.LReLU = []
+        self.stride = stride
+
+        for kxy, filters in conv_kernels:
+            self.Conv.append(K.layers.Conv2D(filters=filters, kernel_size=kxy, strides=self.stride, use_bias=True,
+                                             data_format=data_format_keras, padding='same'))
+            self.BN.append(K.layers.BatchNormalization(axis=channel_axis))
+            self.LReLU.append(K.layers.LeakyReLU())
+
+    def call(self, inputs, training=None, mask=None):
+        activ = inputs  # set input to for loop
+        for conv_layer, bn_layer, lrelu_layer in zip(self.Conv, self.BN, self.LReLU):
+            conv = conv_layer(activ)
+            bn = bn_layer(conv)
+            activ = lrelu_layer(bn)
+        return activ
+
+
+class LSTMConvBnRelu(K.Model):
+
+    def __init__(self, lstm_kernels: List[tuple], conv_kernels: List[tuple], stride=1, data_format='NCHW'):
         super(LSTMConvBnRelu, self).__init__()
         data_format_keras = 'channels_last'
         channel_axis = 1 if data_format[1] == 'C' else -1
@@ -48,15 +51,15 @@ class LSTMConvBnRelu(k.Model):
         self.stride = stride
 
         for kernel_size, filters in lstm_kernels:
-            self.ConvLSTM.append(k.layers.ConvLSTM2D(filters=filters, kernel_size=kernel_size, strides=(1, 1),
+            self.ConvLSTM.append(K.layers.ConvLSTM2D(filters=filters, kernel_size=kernel_size, strides=(1, 1),
                                                      padding='same', data_format=data_format_keras,
                                                      return_sequences=True, stateful=True))
 
         for kxy, filters in conv_kernels:
-            self.Conv.append(k.layers.Conv2D(filters=filters, kernel_size=kxy, strides=self.stride, use_bias=True,
+            self.Conv.append(K.layers.Conv2D(filters=filters, kernel_size=kxy, strides=self.stride, use_bias=True,
                                              data_format=data_format_keras, padding='same'))
-            self.BN.append(k.layers.BatchNormalization(axis=channel_axis))
-            self.LReLU.append(k.layers.LeakyReLU())
+            self.BN.append(K.layers.BatchNormalization(axis=channel_axis))
+            self.LReLU.append(K.layers.LeakyReLU())
 
     def call(self, inputs, training=None, mask=None):
         convlstm = inputs
@@ -69,7 +72,7 @@ class LSTMConvBnRelu(k.Model):
         activ = conv_input  # set input to for loop
         for conv_layer, bn_layer, lrelu_layer in zip(self.Conv, self.BN, self.LReLU):
             conv = conv_layer(activ)
-            bn = bn_layer(conv, training)
+            bn = bn_layer(conv)
             activ = lrelu_layer(bn)
         out_shape = activ.shape
         activ_down = tf.reshape(activ, [orig_shape[0], orig_shape[1], out_shape[1], out_shape[2], out_shape[3]])
@@ -99,7 +102,7 @@ class LSTMConvBnRelu(k.Model):
             convlstm_layer.reset_states(state)
 
 
-class SampleLayer(Layer):
+class SampleLayer(K.layers.Layer):
     """
     Keras Layer to grab a random sample from a distribution (by multiplication)
     Computes "(normal)*stddev + mean" for the vae sampling operation
@@ -162,27 +165,66 @@ class SampleLayer(Layer):
 
         if self.reg == 'bvae':
             # kl divergence:
-            latent_loss = -0.5 * k.backend.mean(1 + stddev
-                                                - k.backend.square(mean)
-                                                - k.backend.exp(stddev), axis=-1)
+            latent_loss = -0.5 * K.backend.mean(1 + stddev
+                                                - K.backend.square(mean)
+                                                - K.backend.exp(stddev), axis=-1)
             # use beta to force less usage of vector space:
             # also try to use <capacity> dimensions of the space:
-            latent_loss = self.beta * k.backend.abs(latent_loss - self.capacity / self.shape.as_list()[1])
+            latent_loss = self.beta * K.backend.abs(latent_loss - self.capacity / self.shape.as_list()[1])
             self.add_loss(latent_loss, x)
         elif self.reg == 'vae':
             # kl divergence:
-            latent_loss = -0.5 * k.backend.mean(1 + stddev
-                                                - k.backend.square(mean)
-                                                - k.backend.exp(stddev), axis=-1)
+            latent_loss = -0.5 * K.backend.mean(1 + stddev
+                                                - K.backend.square(mean)
+                                                - K.backend.exp(stddev), axis=-1)
             self.add_loss(latent_loss, x)
 
-        epsilon = k.backend.random_normal(shape=self.shape,
+        epsilon = K.backend.random_normal(shape=self.shape,
                                           mean=0., stddev=1.)
         if self.random:
             # 'reparameterization trick':
-            return mean + k.backend.exp(stddev) * epsilon
+            return mean + K.backend.exp(stddev) * epsilon
         else:  # do not perform random sampling, simply grab the impulse value
             return mean + 0 * stddev  # Keras needs the *0 so the gradinent is not None
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
+
+
+class SequencesToBatchesLayer(K.layers.Layer):
+    def __init__(self, *args, **kwargs):
+        super(SequencesToBatchesLayer, self).__init__(*args, **kwargs)
+        self._input_shape = None
+
+    def build(self, input_shape):
+        self._input_shape = input_shape
+        super(SequencesToBatchesLayer, self).build(input_shape)
+
+    def call(self, x):
+        net = tf.reshape(x, [self._input_shape[0] * self._input_shape[1], self._input_shape[2],
+                             self._input_shape[3], self._input_shape[4]])
+        return net
+
+    def compute_output_shape(self, input_shape):
+        return [input_shape[0] * input_shape[1], input_shape[2], input_shape[3], input_shape[4]]
+
+
+class BatchesToSequencesLayer(K.layers.Layer):
+    def __init__(self, previous_shape, *args, **kwargs):
+        super(BatchesToSequencesLayer, self).__init__(*args, **kwargs)
+        self._input_shape = None
+        self.previous_shape = previous_shape
+
+    def build(self, input_shape):
+        self._input_shape = input_shape
+        super(BatchesToSequencesLayer, self).build(input_shape)
+
+    def call(self, x):
+        input_shape = x.shape
+        net = tf.reshape(x, [self.previous_shape[0], self.previous_shape[1],
+                             input_shape[1], input_shape[2], input_shape[3]])
+        return net
+
+    def compute_output_shape(self, input_shape):
+        return [self.previous_shape[0], self.previous_shape[1],
+                input_shape[1], input_shape[2], input_shape[3]]
