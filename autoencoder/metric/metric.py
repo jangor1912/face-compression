@@ -13,13 +13,22 @@ class FaceMetric(object):
         self.white = (16, 16, 16, 128)
 
     @staticmethod
-    def get_loss(original_image, produced_image, mask):
-        original_image = tf.convert_to_tensor(original_image, dtype=tf.float32)
-        produced_image = tf.convert_to_tensor(produced_image, dtype=tf.float32)
-        mask = tf.convert_to_tensor(mask, dtype=tf.float32)
-        mask = tf.divide(mask, 255)
+    def get_loss(y_true, y_pred):
+        produced_image = y_pred
+        original_image = y_true[0]
+        mask = y_true[1]
+        # original_image = tf.convert_to_tensor(original_image, dtype=tf.float32)
+        # produced_image = tf.convert_to_tensor(produced_image, dtype=tf.float32)
+        # mask = tf.convert_to_tensor(mask, dtype=tf.float32)
         mse_tensor = tf.square(tf.subtract(original_image, produced_image))
         return tf.reduce_mean(tf.multiply(mse_tensor, mask))
+
+    @classmethod
+    def get_loss_from_batch(cls, y_true_batch, y_pred_batch):
+        result = list()
+        for i in range(int(y_pred_batch.shape[0])):
+            result.append(cls.get_loss(y_true_batch[i], y_pred_batch[i]))
+        return tf.reduce_mean(result)
 
     def generate_mask(self, face_prediction, img_height=None, img_width=None):
         result = None

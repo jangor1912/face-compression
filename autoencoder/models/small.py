@@ -1,5 +1,4 @@
 from tensorflow.python.keras import Model, Input
-from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.layers import Conv2D, GlobalAveragePooling2D, Reshape, MaxPool3D, UpSampling2D
 
 from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu
@@ -129,20 +128,30 @@ class LSTMDecoder32(Architecture):
         return Model(inLayer, net)
 
 
-class AutoEncoder(object):
+class VariationalAutoEncoder(object):
     def __init__(self, encoder, decoder):
         self.encoder = encoder.model
         self.decoder = decoder.model
 
         self.ae = Model(self.encoder.inputs, self.decoder(self.encoder.outputs))
 
+    def summary(self):
+        print("Encoder summary")
+        self.encoder.summary()
+        print("Decoder summary")
+        self.decoder.summary()
+        print("Model summary")
+        self.ae.summary()
 
-def test():
+
+def test_summary():
     d19e = LSTMEncoder32()
     d19e.model.summary()
     d19d = LSTMDecoder32()
     d19d.model.summary()
+    auto_encoder = VariationalAutoEncoder(d19e, d19d)
+    auto_encoder.ae.summary()
 
 
 if __name__ == '__main__':
-    test()
+    test_summary()

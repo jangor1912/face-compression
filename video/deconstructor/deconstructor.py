@@ -18,8 +18,16 @@ class Deconstructor(object):
         self.find_faces_in_video(video_path)
         os.remove(video_path)
 
-    def video_to_images(self, video_path):
+    def video_to_images(self, video_path, start_frame=0):
         vidcap = cv2.VideoCapture(video_path)
+        try:
+            if start_frame:
+                success = vidcap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+                if not success:
+                    raise RuntimeError(f"Cannot set frame of video {video_path} to {start_frame}")
+        except Exception as e:
+            message = f"Error during skipping frames. Error = {str(e)}"
+            raise RuntimeError(str(message))
         success, image = vidcap.read()
         count = 0
         while success:
