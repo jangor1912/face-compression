@@ -228,3 +228,16 @@ class BatchesToSequencesLayer(K.layers.Layer):
     def compute_output_shape(self, input_shape):
         return [self.previous_shape[0], self.previous_shape[1],
                 input_shape[1], input_shape[2], input_shape[3]]
+
+
+class DummyMaskLayer(K.layers.Layer):
+    def call(self, x):
+        input_shape = x.shape
+        net = tf.expand_dims(x, 1)
+        to_append = tf.zeros(input_shape[1:])  # skipping batch dimension
+        net = tf.map_fn(lambda batch: tf.concat((batch, [to_append]), axis=0), net)
+        return net
+
+    def compute_output_shape(self, input_shape):
+        return [input_shape[0], 2, input_shape[1],
+                input_shape[2], input_shape[3]]

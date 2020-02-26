@@ -1,7 +1,7 @@
 from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.layers import Conv2D, GlobalAveragePooling2D, Reshape, MaxPool3D, UpSampling2D
 
-from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu
+from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu, DummyMaskLayer
 
 
 class Architecture(object):
@@ -73,7 +73,7 @@ class LSTMEncoder32(Architecture):
         self.realInputShape = (framesNo,) + inputShape
         super().__init__(inputShape, batchSize, latentSize, framesNo)
 
-    def Build(self):
+    def layers(self):
         # create the input layer for feeding the network
         inLayer = Input(self.realInputShape, self.batchSize)
         net = LSTMConvBnRelu(lstm_kernels=[(3, 64)], conv_kernels=[(3, 128), (1, 64), (3, 128)])(inLayer)
@@ -97,17 +97,18 @@ class LSTMEncoder32(Architecture):
 
         sample = SampleLayer(self.latentConstraints, self.beta,
                              self.latentCapacity, self.randomSample)([mean, stddev])
+        return inLayer, sample
 
-        return Model(inputs=inLayer, outputs=sample)
+    def Build(self):
+        inputs, outputs = self.layers()
+        return Model(inputs=inputs, outputs=outputs)
 
 
 class LSTMDecoder32(Architecture):
     def __init__(self, inputShape=(32, 32, 3), batchSize=1, latentSize=512):
         super().__init__(inputShape, batchSize, latentSize)
 
-    def Build(self):
-        # input layer is from GlobalAveragePooling:
-        inLayer = Input([self.latentSize], self.batchSize)
+    def layers(self, inLayer):
         # reexpand the input from flat:
         net = Reshape((1, 1, self.latentSize))(inLayer)
 
@@ -125,23 +126,30 @@ class LSTMDecoder32(Architecture):
 
         net = Conv2D(filters=self.inputShape[-1], kernel_size=(1, 1),
                      padding='same')(net)
-        return Model(inLayer, net)
+        return inLayer, net
+
+    def Build(self):
+        # input layer is from GlobalAveragePooling:
+        inLayer = Input([self.latentSize], self.batchSize)
+        inputs, outputs = self.layers(inLayer)
+        return Model(inputs=inputs, outputs=outputs)
 
 
 class VariationalAutoEncoder(object):
     def __init__(self, encoder, decoder):
-        self.encoder = encoder.model
-        self.decoder = decoder.model
+        self.encoder = encoder
+        self.decoder = decoder
+        self.model = self.Build()
 
-        self.ae = Model(self.encoder.inputs, self.decoder(self.encoder.outputs))
+    def Build(self):
+        encoder_inputs, encoder_outputs = self.encoder.layers()
+        decoder_inputs, decoder_outputs = self.decoder.layers(encoder_outputs)
+        net = DummyMaskLayer()(decoder_outputs)
+        return Model(inputs=encoder_inputs, outputs=net)
 
     def summary(self):
-        print("Encoder summary")
-        self.encoder.summary()
-        print("Decoder summary")
-        self.decoder.summary()
         print("Model summary")
-        self.ae.summary()
+        self.model.summary()
 
 
 def test_summary():
@@ -150,7 +158,7 @@ def test_summary():
     d19d = LSTMDecoder32()
     d19d.model.summary()
     auto_encoder = VariationalAutoEncoder(d19e, d19d)
-    auto_encoder.ae.summary()
+    auto_encoder.summary()
 
 
 if __name__ == '__main__':

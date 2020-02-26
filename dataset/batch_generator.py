@@ -116,7 +116,7 @@ class BatchGenerator(object):
                 inputs, targets = self.get_item()
                 input_batch.append(inputs)
                 target_batch.append(targets)
-            yield input_batch, target_batch
+            yield np.array(input_batch), np.array(target_batch)
 
 
 def test(directory):

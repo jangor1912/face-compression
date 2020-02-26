@@ -14,7 +14,8 @@ class FaceMetric(object):
 
     @staticmethod
     def get_loss(y_true, y_pred):
-        produced_image = y_pred
+        produced_image = y_pred[0]
+        dummy_mask = y_pred[1]
         original_image = y_true[0]
         mask = y_true[1]
         # original_image = tf.convert_to_tensor(original_image, dtype=tf.float32)

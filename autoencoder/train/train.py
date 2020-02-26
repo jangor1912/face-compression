@@ -29,7 +29,7 @@ class Training(object):
 def train_small():
     train_directory = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/train/final"
     test_directory = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/test/final"
-    batch_size = 1
+    batch_size = 4
     frames_no = 8
     input_shape = (32, 32, 3)
     latent_size = 512
@@ -44,7 +44,7 @@ def train_small():
     decoder = LSTMDecoder32(inputShape=input_shape, batchSize=batch_size, latentSize=latent_size)
     auto_encoder = VariationalAutoEncoder(encoder, decoder)
     auto_encoder.summary()
-    t = Training(model=auto_encoder.ae,
+    t = Training(model=auto_encoder.model,
                  training_generator=train_gen,
                  validation_generator=test_gen,
                  metric=metric)
