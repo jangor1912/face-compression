@@ -18,15 +18,18 @@ class Deconstructor(object):
         self.find_faces_in_video(video_path)
         os.remove(video_path)
 
-    def video_to_images(self, video_path, start_frame=0):
+    # def trim_video(self, video_path, video_length):
+
+    @staticmethod
+    def video_to_images(video_path, start_frame=0):
         vidcap = cv2.VideoCapture(video_path)
         try:
             if start_frame:
                 success = vidcap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
                 if not success:
-                    raise RuntimeError(f"Cannot set frame of video {video_path} to {start_frame}")
+                    raise RuntimeError("Cannot set frame of video {} to {}".format(video_path, start_frame))
         except Exception as e:
-            message = f"Error during skipping frames. Error = {str(e)}"
+            message = "Error during skipping frames. Error = {}".format(str(e))
             raise RuntimeError(str(message))
         success, image = vidcap.read()
         count = 0
@@ -40,7 +43,7 @@ class Deconstructor(object):
         directory_path = os.path.join(CONF["directory"]["faces"], os.path.basename(video_path))
         try:
             os.mkdir(directory_path)
-        except FileExistsError:
+        except Exception:
             pass
 
         currently_skipped = 0

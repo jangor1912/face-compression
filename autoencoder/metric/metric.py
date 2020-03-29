@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from PIL import ImageDraw, Image, ImageOps, ImageFilter
 
 from face_detection.face_landmarks import FaceLandmarksPredictorFAN

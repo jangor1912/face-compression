@@ -71,7 +71,7 @@ class LSTMEncoder32(Architecture):
         self.randomSample = randomSample
         self.framesNo = framesNo
         self.realInputShape = (framesNo,) + inputShape
-        super().__init__(inputShape, batchSize, latentSize, framesNo)
+        super(LSTMEncoder32, self).__init__(inputShape, batchSize, latentSize, framesNo)
 
     def layers(self):
         # create the input layer for feeding the network
@@ -106,7 +106,7 @@ class LSTMEncoder32(Architecture):
 
 class LSTMDecoder32(Architecture):
     def __init__(self, inputShape=(32, 32, 3), batchSize=1, latentSize=512):
-        super().__init__(inputShape, batchSize, latentSize)
+        super(LSTMDecoder32, self).__init__(inputShape, batchSize, latentSize)
 
     def layers(self, inLayer):
         # reexpand the input from flat:

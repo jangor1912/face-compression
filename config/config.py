@@ -5,7 +5,8 @@ import yaml
 from common.singleton import Singleton
 
 
-class Config(object, metaclass=Singleton):
+class Config(object):
+    __metaclass__ = Singleton
     CONF = dict()
 
     def __init__(self, config_file_path=None):

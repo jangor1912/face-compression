@@ -1,4 +1,5 @@
-tensorflow-gpu
+matplotlib
+tensorflow
 imutils
 dlib
 numpy
@@ -6,4 +7,8 @@ googleapiclient
 cv2
 pytube
 PyYAML
+opencv-contrib-python
+Pillow
+face-alignment
+
 
