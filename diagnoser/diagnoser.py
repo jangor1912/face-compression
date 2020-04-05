@@ -2,7 +2,7 @@ import io
 import os
 
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from PIL import Image
 from tensorflow.python.keras.callbacks import Callback
 # Depending on your keras version:-
@@ -60,12 +60,10 @@ class ModelDiagonoser(Callback):
                  data_generator,
                  batch_size,
                  num_samples,
-                 output_dir,
-                 normalization_mean):
+                 output_dir):
         self.batch_size = batch_size
         self.num_samples = num_samples
         self.tensorboard_writer = TensorBoardWriter(output_dir)
-        self.normalization_mean = normalization_mean
         self.data_generator = data_generator
         is_sequence = isinstance(self.data_generator, Sequence)
         if is_sequence:
@@ -86,26 +84,18 @@ class ModelDiagonoser(Callback):
         while steps_done < total_steps:
             generator_output = next(output_generator)
             x, y = generator_output[:2]
-            y_pred = self.model.predict(x)
-            y_pred = np.argmax(y_pred, axis=-1)
-            y_true = np.argmax(y, axis=-1)
+            y_pred = self.model.predict(x)[0]
+            y_true = y[0]
 
             for i in range(0, len(y_pred)):
                 n = steps_done * self.batch_size + i
                 if n >= self.num_samples:
                     return
-                img = np.squeeze(x[i, :, :, :])
-                img = 255. * (img + self.normalization_mean)  # mean is the training images normalization mean
-                img = img[:, :, [2, 1, 0]]  # reordering of channels
 
                 pred = y_pred[i]
-                pred = pred.reshape(img.shape[0:2])
 
                 ground_truth = y_true[i]
-                ground_truth = ground_truth.reshape(img.shape[0:2])
 
-                self.tensorboard_writer.save_image("Epoch-{}/{}/x"
-                                                   .format(self.epoch_index, sample_index), img)
                 self.tensorboard_writer.save_image("Epoch-{}/{}/y"
                                                    .format(self.epoch_index, sample_index), ground_truth)
                 self.tensorboard_writer.save_image("Epoch-{}/{}/y_pred"

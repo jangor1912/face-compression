@@ -12,7 +12,7 @@ from tensorflow.python import keras as K
 
 class ConvBnRelu(K.Model):
 
-    def __init__(self, conv_kernels, stride=1, data_format='NCHW'):
+    def __init__(self, conv_kernels, stride=1, data_format='NHWC'):
         super(ConvBnRelu, self).__init__()
         data_format_keras = 'channels_last'
         channel_axis = 1 if data_format[1] == 'C' else -1
@@ -38,7 +38,7 @@ class ConvBnRelu(K.Model):
 
 class LSTMConvBnRelu(K.Model):
 
-    def __init__(self, lstm_kernels, conv_kernels, stride=1, data_format='NCHW'):
+    def __init__(self, lstm_kernels, conv_kernels, stride=1, data_format='NHWC'):
         super(LSTMConvBnRelu, self).__init__()
         data_format_keras = 'channels_last'
         channel_axis = 1 if data_format[1] == 'C' else -1
