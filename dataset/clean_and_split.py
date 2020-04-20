@@ -34,7 +34,7 @@ def main(path, train_path, test_path):
 
 
 if __name__ == "__main__":
-    videos_path = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/train_sample_videos"
-    train = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/train"
-    test = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/test"
+    videos_path = "G:/Magisterka/kaggle_dataset/small/train_sample_videos"
+    train = "G:/Magisterka/kaggle_dataset/small/train"
+    test = "G:/Magisterka/kaggle_dataset/small/test"
     main(videos_path, train, test)

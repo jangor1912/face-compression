@@ -6,7 +6,7 @@ created by shadySource
 
 THE UNLICENSE
 """
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from tensorflow.python import keras as K
 
 

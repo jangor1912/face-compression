@@ -1,5 +1,7 @@
+from pathlib import Path
+
 from matplotlib import pyplot
-from tensorflow_core.python.keras.utils import OrderedEnqueuer
+from tensorflow.python.keras.utils import OrderedEnqueuer
 
 from autoencoder.metric.metric import FaceMetric
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
@@ -27,22 +29,22 @@ class Training(object):
         test_gen = test_enqueuer.get()
         # train model
         history = self.model.fit_generator(generator=train_gen,
-                                           epochs=8,
-                                           validation_data=test_gen,
+                                           epochs=100,
+                                           validation_data=next(test_gen),
                                            verbose=2,
                                            steps_per_epoch=len(self.training_sequence),
                                            validation_steps=len(self.validation_sequence),
                                            callbacks=self.callbacks)
         # plot metrics
         print(str(history.history))
-        pyplot.plot(history.history['get_loss_from_batch'])
-        pyplot.show()
+        # pyplot.plot(history.history['get_loss_from_batch'])
+        # pyplot.show()
 
 
 def train_small():
-    train_directory = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/train/final"
-    test_directory = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/test/final"
-    batch_size = 4
+    train_directory = Path("G:/Magisterka/kaggle_dataset/small/train/final")
+    test_directory = Path("G:/Magisterka/kaggle_dataset/small/test/final")
+    batch_size = 1
     frames_no = 8
     input_shape = (32, 32, 3)
     latent_size = 512
@@ -53,7 +55,7 @@ def train_small():
                              batch_size=batch_size, frames_no=frames_no)
 
     num_samples = 3  # samples to be generated each epoch
-    samples_dir = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/results/samples"
+    samples_dir = Path("G:/Magisterka/kaggle_dataset/small/results/samples")
     callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_dir)]
 
     metric = FaceMetric.get_loss_from_batch

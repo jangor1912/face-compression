@@ -2,7 +2,7 @@ import io
 import os
 
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from PIL import Image
 from tensorflow.python.keras.callbacks import Callback
 # Depending on your keras version:-
@@ -60,11 +60,13 @@ class ModelDiagonoser(Callback):
                  data_generator,
                  batch_size,
                  num_samples,
-                 output_dir):
+                 output_dir,
+                 tensorboard=True):
         self.batch_size = batch_size
         self.num_samples = num_samples
         self.tensorboard_writer = TensorBoardWriter(output_dir)
         self.data_generator = data_generator
+        self.tensorboard = tensorboard
         is_sequence = isinstance(self.data_generator, Sequence)
         if is_sequence:
             self.enqueuer = OrderedEnqueuer(self.data_generator,
@@ -96,10 +98,13 @@ class ModelDiagonoser(Callback):
 
                 ground_truth = y_true[i]
 
-                self.tensorboard_writer.save_image("Epoch-{}/{}/y"
-                                                   .format(self.epoch_index, sample_index), ground_truth)
-                self.tensorboard_writer.save_image("Epoch-{}/{}/y_pred"
-                                                   .format(self.epoch_index, sample_index), pred)
+                if self.tensorboard:
+                    self.tensorboard_writer.save_image("Epoch-{}/{}/y"
+                                                       .format(epoch, sample_index), ground_truth)
+                    self.tensorboard_writer.save_image("Epoch-{}/{}/y_pred"
+                                                       .format(epoch, sample_index), pred)
+                else:
+                    pass
                 sample_index += 1
 
             steps_done += 1

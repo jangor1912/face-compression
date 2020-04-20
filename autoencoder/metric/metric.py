@@ -1,9 +1,10 @@
 import cv2
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 from PIL import ImageDraw, Image, ImageOps, ImageFilter
 
-from face_detection.face_landmarks import FaceLandmarksPredictorFAN
+# from face_detection.face_landmarks import FaceLandmarksPredictorFAN
+from dataset.batch_generator import BatchSequence
 
 
 class FaceMetric(object):
@@ -14,13 +15,10 @@ class FaceMetric(object):
 
     @staticmethod
     def get_loss(y_true, y_pred):
-        produced_image = y_pred[0]
-        dummy_mask = y_pred[1]
+        produced_image = y_pred
         original_image = y_true[0]
         mask = y_true[1]
-        # original_image = tf.convert_to_tensor(original_image, dtype=tf.float32)
-        # produced_image = tf.convert_to_tensor(produced_image, dtype=tf.float32)
-        # mask = tf.convert_to_tensor(mask, dtype=tf.float32)
+        mask += 1.0  # This means that mask values belong to <0, 2>
         mse_tensor = tf.square(tf.subtract(original_image, produced_image))
         return tf.reduce_mean(tf.multiply(mse_tensor, mask))
 
@@ -118,13 +116,14 @@ class FaceMetric(object):
 
 
 def main():
-    image_path = "/home/jan/PycharmProjects/face-compression/data/images/my_face_front.png"
-    predictor = FaceLandmarksPredictorFAN(_type='2d')
-    image = cv2.imread(image_path)
-    img_height, img_width, _ = np.array(image).shape
-    metric = FaceMetric(predictor)
-    prediction = predictor.detect_one_face_landmark(image)
-    metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
+    pass
+    # image_path = "/home/jan/PycharmProjects/face-compression/data/images/my_face_front.png"
+    # predictor = FaceLandmarksPredictorFAN(_type='2d')
+    # image = cv2.imread(image_path)
+    # img_height, img_width, _ = np.array(image).shape
+    # metric = FaceMetric(predictor)
+    # prediction = predictor.detect_one_face_landmark(image)
+    # metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
 
 
 if __name__ == "__main__":

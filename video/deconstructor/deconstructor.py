@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import cv2
 
@@ -18,7 +19,16 @@ class Deconstructor(object):
         self.find_faces_in_video(video_path)
         os.remove(video_path)
 
-    # def trim_video(self, video_path, video_length):
+    @staticmethod
+    def get_video_length(video_path: Path) -> int:  # in frames
+        vidcap = cv2.VideoCapture(video_path)
+        try:
+            vidcap.set(cv2.CAP_PROP_POS_AVI_RATIO, 1)
+            length = vidcap.get(cv2.CAP_PROP_FRAME_COUNT)
+            return int(length)
+        except Exception as e:
+            message = "Error during getting video {} length. Error = {}".format(video_path, str(e))
+            raise RuntimeError(str(message))
 
     @staticmethod
     def video_to_images(video_path, start_frame=0):

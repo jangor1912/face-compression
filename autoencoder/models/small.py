@@ -1,5 +1,8 @@
 from tensorflow.python.keras import Model, Input
-from tensorflow.python.keras.layers import Conv2D, GlobalAveragePooling2D, Reshape, MaxPool3D, UpSampling2D
+from tensorflow.python.keras.backend import expand_dims, stack, squeeze
+
+from tensorflow.python.keras.layers import Conv2D, GlobalAveragePooling2D, Reshape, MaxPool3D,\
+    UpSampling2D, MaxPool2D, Dense, concatenate, MaxPool1D, Conv1D, BatchNormalization, LeakyReLU, Lambda
 
 from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu, DummyMaskLayer
 
@@ -87,6 +90,25 @@ class LSTMEncoder32(Architecture):
         # reshape for sequence removal
         # there should be only one element of sequence at this point so it is just dimension reduction
         net = SequencesToBatchesLayer()(net)
+        # Second input - b&w mask based on which face pose should be generated
+        # cut RGB since mask is black and white
+        mask_input = Input(tuple(list(self.inputShape[:-1]) + [1]), self.batchSize)
+
+        mask_net = ConvBnRelu(conv_kernels=[(3, 64)])(mask_input)
+        mask_net = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(mask_net)
+
+        mask_net = ConvBnRelu(conv_kernels=[(3, 128)])(mask_net)
+        mask_net = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(mask_net)
+
+        mask_net = ConvBnRelu(conv_kernels=[(3, 256)])(mask_net)
+        mask_net = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(mask_net)
+
+        mask_net = ConvBnRelu(conv_kernels=[(3, 512)])(mask_net)
+        mask_net = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(mask_net)
+
+        mask_net = Conv2D(filters=self.latentSize, kernel_size=(1, 1), padding='same')(mask_net)
+        mask_vector = GlobalAveragePooling2D()(mask_net)
+
         # variational encoder output (distributions)
         mean = Conv2D(filters=self.latentSize, kernel_size=(1, 1),
                       padding='same')(net)
@@ -97,7 +119,17 @@ class LSTMEncoder32(Architecture):
 
         sample = SampleLayer(self.latentConstraints, self.beta,
                              self.latentCapacity, self.randomSample)([mean, stddev])
-        return inLayer, sample
+
+        # Stacking mask with latent representation
+        stacked_vector = Lambda(lambda x: stack(x, axis=1))([sample, mask_vector])
+        final_vector = Conv1D(filters=self.latentSize, kernel_size=2)(stacked_vector)
+        final_vector = BatchNormalization()(final_vector)
+        final_vector = LeakyReLU()(final_vector)
+        final_vector = Dense(self.latentSize)(final_vector)
+        # reduce dimensionality
+        final_vector = Lambda(lambda x: squeeze(x, axis=1))(final_vector)
+
+        return [inLayer, mask_input], final_vector
 
     def Build(self):
         inputs, outputs = self.layers()

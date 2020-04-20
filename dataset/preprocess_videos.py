@@ -17,6 +17,6 @@ def main(videos_dir, final_dir):
 
 
 if __name__ == "__main__":
-    videos_directory = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/test"
-    final_directory = "/media/jan/Elements SE/Magisterka/kaggle_dataset/small/test/final"
+    videos_directory = "G:/Magisterka/kaggle_dataset/small/test"
+    final_directory = "G:/Magisterka/kaggle_dataset/small/test/final"
     main(videos_directory, final_directory)
