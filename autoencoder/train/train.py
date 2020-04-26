@@ -37,47 +37,71 @@ class Training(object):
                                            validation_steps=len(self.validation_sequence),
                                            callbacks=self.callbacks)
         # plot metrics
-        self.plot_results(history)
+        self.plot_results(history, self.callbacks[0].output_dir)
 
     @staticmethod
-    def plot_results(history):
+    def plot_results(history, output_path):
         history = history.history
         print(history)
         y_loss = [np.average(seq) for seq in history["loss"]]
         y_val_loss = [np.average(seq) for seq in history["val_loss"]]
         epochs = [i for i in range(len(y_loss))]
 
+        plt.figure()
         plt.plot(epochs, history["get_loss_from_batch"], color="blue", label="training")
         plt.plot(epochs, history["val_get_loss_from_batch"], color="red", label="validation")
         plt.xlabel("Epochs")
         plt.ylabel("Face-metric value")
         plt.legend(["training", "validation"], loc='upper left')
         plt.title('Face-metric')
-        plt.show()
+        # plt.show()
+        plt.savefig(str(Path(output_path, 'face-metric.png')))
+        plt.close()
+        np.savetxt(str(Path(output_path, 'face-metric-train.csv')), history["get_loss_from_batch"], delimiter=",")
+        np.savetxt(str(Path(output_path, 'face-metric-validation.csv')),
+                   history["val_get_loss_from_batch"], delimiter=",")
 
+        plt.figure()
         plt.plot(epochs, history["mean_squared_error"], color="blue", label="training")
         plt.plot(epochs, history["val_mean_squared_error"], color="red", label="validation")
         plt.xlabel("Epochs")
         plt.ylabel("MSE value")
         plt.legend(["training", "validation"], loc='upper left')
         plt.title('MSE metric')
-        plt.show()
+        # plt.show()
+        plt.savefig(str(Path(output_path, 'mse-metric.png')))
+        plt.close()
+        np.savetxt(str(Path(output_path, 'mse-metric.csv')), history["mean_squared_error"], delimiter=",")
+        np.savetxt(str(Path(output_path, 'mse-metric-validation.csv')),
+                   history["val_mean_squared_error"], delimiter=",")
 
+        plt.figure()
         plt.plot(epochs, history["acc"], color="blue", label="training")
         plt.plot(epochs, history["val_acc"], color="red", label="validation")
         plt.xlabel("Epochs")
         plt.ylabel("Accuracy value")
         plt.legend(["training", "validation"], loc='upper left')
         plt.title('Accuracy metric')
-        plt.show()
+        # plt.show()
+        plt.savefig(str(Path(output_path, 'accuracy-metric.png')))
+        plt.close()
+        np.savetxt(str(Path(output_path, 'accuracy-metric.csv')), history["acc"], delimiter=",")
+        np.savetxt(str(Path(output_path, 'accuracy-metric-validation.csv')),
+                   history["val_acc"], delimiter=",")
 
+        plt.figure()
         plt.plot(epochs, y_loss, color="blue", label="training")
         plt.plot(epochs, y_val_loss, color="red", label="validation")
         plt.xlabel("Epochs")
         plt.ylabel("Loss value")
         plt.legend(["training", "validation"], loc='upper left')
         plt.title('Model loss')
-        plt.show()
+        # plt.show()
+        plt.savefig(str(Path(output_path, 'model-loss.png')))
+        plt.close()
+        np.savetxt(str(Path(output_path, 'model-loss.csv')), y_loss, delimiter=",")
+        np.savetxt(str(Path(output_path, 'model-loss-validation.csv')),
+                   y_val_loss, delimiter=",")
 
 
 def train_small():

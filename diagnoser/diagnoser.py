@@ -64,6 +64,7 @@ class ModelDiagonoser(Callback):
                  tensorboard=True):
         self.batch_size = batch_size
         self.num_samples = num_samples
+        self.output_dir = output_dir
         self.tensorboard_writer = TensorBoardWriter(output_dir)
         self.data_generator = data_generator
         self.tensorboard = tensorboard
