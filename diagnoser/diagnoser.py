@@ -20,8 +20,8 @@ def make_image_tensor(tensor):
     else:
         height, width = tensor.shape
         channel = 1
-    tensor += 0.5
-    tensor *= 255
+    tensor += 1
+    tensor *= 255.0/2.0
     tensor = tensor.astype(np.uint8)
     image = Image.fromarray(tensor)
     output = io.BytesIO()

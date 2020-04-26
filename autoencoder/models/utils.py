@@ -153,13 +153,14 @@ class SampleLayer(K.layers.Layer):
         super(SampleLayer, self).build(input_shape)  # needed for layers
 
     def call(self, x):
-        if len(x) != 2:
-            raise Exception('input layers must be a list: mean and stddev')
+        if len(x) != 3:
+            raise Exception('input layers must be a list: mean, stddev and epsilon')
         if len(x[0].shape) != 2 or len(x[1].shape) != 2:
-            raise Exception('input shape is not a vector [mean, stddev]')
+            raise Exception('input shape is not a vector [mean, stddev, epsilon]')
 
         mean = x[0]
         stddev = x[1]
+        epsilon = x[2]
 
         if self.reg == 'bvae':
             # kl divergence:
@@ -177,8 +178,8 @@ class SampleLayer(K.layers.Layer):
                                                 - K.backend.exp(stddev), axis=-1)
             self.add_loss(latent_loss, x)
 
-        epsilon = K.backend.random_normal(shape=self.shape,
-                                          mean=0., stddev=1.)
+        # epsilon = self.epsilon or K.backend.random_normal(shape=self.shape,
+        #                                                   mean=0., stddev=1.)
         if self.random:
             # 'reparameterization trick':
             return mean + K.backend.exp(stddev) * epsilon
@@ -187,6 +188,23 @@ class SampleLayer(K.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]
+
+
+class EpsilonLayer(K.layers.Layer):
+    def __init__(self, alpha, **kwargs):
+        self.alpha = alpha
+        super(EpsilonLayer, self).__init__(**kwargs)
+
+    def call(self, x):
+        # mse will keep epsilon as close to zero as possible
+        # This will ensure that vector actually reminds gaussian random normal
+        latent_loss = K.backend.mean(K.backend.square(x), axis=-1)
+        latent_loss = self.alpha * latent_loss
+        self.add_loss(latent_loss, x)
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 
 class SequencesToBatchesLayer(K.layers.Layer):

@@ -2,9 +2,10 @@ from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.backend import expand_dims, stack, squeeze
 
 from tensorflow.python.keras.layers import Conv2D, GlobalAveragePooling2D, Reshape, MaxPool3D,\
-    UpSampling2D, MaxPool2D, Dense, concatenate, MaxPool1D, Conv1D, BatchNormalization, LeakyReLU, Lambda
+    UpSampling2D, MaxPool2D, Dense, concatenate, MaxPool1D, Conv1D, BatchNormalization, LeakyReLU, Lambda, Flatten
 
-from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu, DummyMaskLayer
+from autoencoder.models.utils import LSTMConvBnRelu, SampleLayer, SequencesToBatchesLayer, ConvBnRelu, DummyMaskLayer, \
+    EpsilonLayer
 
 
 class Architecture(object):
@@ -46,7 +47,7 @@ class LSTMEncoder32(Architecture):
         """
 
     def __init__(self, inputShape=(32, 32, 3), batchSize=1, framesNo=8,
-                 latentSize=512, latentConstraints='bvae', beta=100., capacity=512.,
+                 latentSize=512, latentConstraints='bvae', alpha=10., beta=10., capacity=512.,
                  randomSample=True):
         """
         params
@@ -69,6 +70,7 @@ class LSTMEncoder32(Architecture):
                 standard autoencoder.
         """
         self.latentConstraints = latentConstraints
+        self.alpha = alpha
         self.beta = beta
         self.latentCapacity = capacity
         self.randomSample = randomSample
@@ -89,7 +91,7 @@ class LSTMEncoder32(Architecture):
         net = MaxPool3D(pool_size=(2, 2, 2), strides=(2, 2, 2))(net)
         # reshape for sequence removal
         # there should be only one element of sequence at this point so it is just dimension reduction
-        net = SequencesToBatchesLayer()(net)
+        net = Reshape(net.shape[2:])(net)
         # Second input - b&w mask based on which face pose should be generated
         # cut RGB since mask is black and white
         mask_input = Input(tuple(list(self.inputShape[:-1]) + [1]), self.batchSize)
@@ -106,30 +108,35 @@ class LSTMEncoder32(Architecture):
         mask_net = ConvBnRelu(conv_kernels=[(3, 512)])(mask_net)
         mask_net = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(mask_net)
 
-        mask_net = Conv2D(filters=self.latentSize, kernel_size=(1, 1), padding='same')(mask_net)
-        mask_vector = GlobalAveragePooling2D()(mask_net)
+        mask_net = Flatten()(mask_net)
+        mask_net = Dense(self.latentSize)(mask_net)
+        epsilon = EpsilonLayer(alpha=self.alpha)(mask_net)
 
         # variational encoder output (distributions)
         mean = Conv2D(filters=self.latentSize, kernel_size=(1, 1),
                       padding='same')(net)
-        mean = GlobalAveragePooling2D()(mean)
+        mean = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(mean)
+        mean = Flatten()(mean)
+        mean = Dense(self.latentSize)(mean)
         stddev = Conv2D(filters=self.latentSize, kernel_size=(1, 1),
                         padding='same')(net)
-        stddev = GlobalAveragePooling2D()(stddev)
+        stddev = MaxPool2D(pool_size=(2, 2), strides=(2, 2))(stddev)
+        stddev = Flatten()(stddev)
+        stddev = Dense(self.latentSize)(stddev)
 
         sample = SampleLayer(self.latentConstraints, self.beta,
-                             self.latentCapacity, self.randomSample)([mean, stddev])
+                             self.latentCapacity, self.randomSample)([mean, stddev, epsilon])
 
         # Stacking mask with latent representation
-        stacked_vector = Lambda(lambda x: stack(x, axis=1))([sample, mask_vector])
-        final_vector = Conv1D(filters=self.latentSize, kernel_size=2)(stacked_vector)
-        final_vector = BatchNormalization()(final_vector)
-        final_vector = LeakyReLU()(final_vector)
-        final_vector = Dense(self.latentSize)(final_vector)
+        # stacked_vector = Lambda(lambda x: stack(x, axis=1))([sample, mask_vector])
+        # final_vector = Conv1D(filters=self.latentSize, kernel_size=2)(stacked_vector)
+        # final_vector = BatchNormalization()(final_vector)
+        # final_vector = LeakyReLU()(final_vector)
+        # final_vector = Dense(self.latentSize)(final_vector)
         # reduce dimensionality
-        final_vector = Lambda(lambda x: squeeze(x, axis=1))(final_vector)
+        # final_vector = Lambda(lambda x: squeeze(x, axis=1))(final_vector)
 
-        return [inLayer, mask_input], final_vector
+        return [inLayer, mask_input], sample
 
     def Build(self):
         inputs, outputs = self.layers()
@@ -141,8 +148,9 @@ class LSTMDecoder32(Architecture):
         super(LSTMDecoder32, self).__init__(inputShape, batchSize, latentSize)
 
     def layers(self, inLayer):
+        net = Dense(self.latentSize, activation='relu')(inLayer)
         # reexpand the input from flat:
-        net = Reshape((1, 1, self.latentSize))(inLayer)
+        net = Reshape((1, 1, self.latentSize))(net)
 
         net = UpSampling2D(size=(4, 4))(net)
         net = ConvBnRelu(conv_kernels=[(3, 256), (1, 128), (3, 256)])(net)
