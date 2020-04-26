@@ -27,7 +27,7 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
     video_writer1 = cv2.VideoWriter(output_path + "-real.avi", cv2.VideoWriter_fourcc(*"XVID"), 30, size)
 
     # parse first frame
-    frame, _ = frame_generator.__next__()
+    frame, _ = next(frame_generator)
     img_height, img_width, _ = np.array(frame).shape
 
     # resizing for speedup
@@ -59,7 +59,8 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
             # predictions = [prediction] if prediction else None
             # image1 = predictor.place_landmarks(frame, predictions)
             image1 = frame
-            image = face_metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
+            image = face_metric.generate_mask(prediction, img_height=img_height, img_width=img_width,
+                                              output_size=output_size)
             face_locations = face_detector.detect_faces(frame)
             if face_locations:
                 face_location = ImageHelpers.get_square(image, face_locations[0])

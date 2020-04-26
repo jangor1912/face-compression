@@ -29,7 +29,7 @@ class FaceMetric(object):
             result.append(cls.get_loss(y_true_batch[i], y_pred_batch[i]))
         return tf.reduce_mean(result)
 
-    def generate_mask(self, face_prediction, img_height=None, img_width=None):
+    def generate_mask(self, face_prediction, img_height=None, img_width=None, output_size=512):
         result = None
         img_height = img_height or self.size
         img_width = img_width or self.size
@@ -102,7 +102,7 @@ class FaceMetric(object):
         mask = Image.new('RGBA', (img_width, img_height), color=self.white)
         for image in images.values():
             mask.alpha_composite(image)
-        mask = mask.filter(ImageFilter.GaussianBlur(radius=int(img_height / 100)))
+        mask = mask.filter(ImageFilter.GaussianBlur(radius=int(output_size / 200)))
 
         background = Image.new("RGB", (img_width, img_height), (255, 255, 255))
         background.paste(mask, mask=mask.split()[3])  # 3 is the alpha channel
