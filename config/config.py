@@ -8,6 +8,7 @@ from common.singleton import Singleton
 class Config(object):
     __metaclass__ = Singleton
     CONF = dict()
+    project_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
     def __init__(self, config_file_path=None):
         self.CONF = self.load_config(config_file_path)
@@ -23,6 +24,6 @@ class Config(object):
         for category in ["directory", "path"]:
             for key in config[category]:
                 relative_path = config[category][key]
-                config[category][key] = os.path.abspath(relative_path)
+                config[category][key] = os.path.join(cls.project_directory, relative_path)
 
         return config

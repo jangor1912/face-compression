@@ -6,7 +6,6 @@ import numpy as np
 
 from autoencoder.metric.metric import FaceMetric
 from config.config import Config
-from face_detection.face_detector import FaceDetector
 from face_detection.face_landmarks import FaceLandmarksPredictorFAN
 from face_detection.misc.image_helpers import ImageHelpers
 from video.deconstructor.deconstructor import Deconstructor
@@ -14,12 +13,11 @@ from video.deconstructor.deconstructor import Deconstructor
 CONF = Config().CONF
 
 
-def generate_landmarked_face_video(input_path, output_path, output_size=512):
+def generate_landmarked_face_video(input_path, output_path, output_size=512, strict=False, length=10):
     if not Path(input_path).exists():
         raise RuntimeError("Input path = {} does not exist!".format(input_path))
 
-    frame_generator = Deconstructor().video_to_images(input_path)
-    face_detector = FaceDetector(model="hog")
+    frame_generator = Deconstructor.video_to_images(input_path)
     predictor = FaceLandmarksPredictorFAN(device="cpu")
     face_metric = FaceMetric(predictor)
     size = (output_size, output_size)
@@ -27,18 +25,15 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
     video_writer1 = cv2.VideoWriter(output_path + "-real.avi", cv2.VideoWriter_fourcc(*"XVID"), 30, size)
 
     # parse first frame
-    frame, _ = frame_generator.__next__()
+    frame, _ = next(frame_generator)
     img_height, img_width, _ = np.array(frame).shape
 
-    # resizing for speedup
-    # frame = cv2.resize(frame, (int(img_width * 0.3), int(img_height * 0.3)), interpolation=cv2.INTER_AREA)
-    # cv2.imshow("output", frame)
-    # cv2.waitKey(30)
-
-    face_locations = face_detector.detect_faces(frame)
+    prediction = predictor.detect_one_face_landmark(frame)
     face_location = None
-    if face_locations:
-        face_location = ImageHelpers.get_square(frame, face_locations[0])
+    if prediction:
+        face_location = predictor.get_face_square(frame, prediction)
+        face_location = ImageHelpers.get_square(frame, face_location)
+        face_location = ImageHelpers.expand_image(frame, face_location, expansion_factor=0.3)
 
     last_goal = face_location or [int(img_height / 3), int(img_height / 3), int(img_height * 2 / 3),
                                   int(img_height * 2 / 3)]
@@ -48,21 +43,41 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
 
     resize_smoothness = 4.0
     movement_smoothness = 4.0
+
+    face_continuity = []
+    face_present = False
+    length_in_frames = int(30 * length)
     try:
         for frame, frame_no in frame_generator:
             print("Processing frame = {}".format(frame_no))
             # resizing for speedup
             img_height, img_width, _ = np.array(frame).shape
-            # frame = cv2.resize(frame, (int(img_width * 0.3), int(img_height * 0.3)), interpolation=cv2.INTER_AREA)
 
             prediction = predictor.detect_one_face_landmark(frame)
+
+            # fill face metadata -> sections that include face
+            if prediction is not None:
+                if not face_continuity:
+                    face_continuity.append([frame_no, frame_no])
+                    print(f"Begin face scene at {frame_no}")
+                elif not face_present:
+                    face_continuity.append([frame_no, frame_no])
+                    print(f"New face scene at {frame_no}")
+                else:
+                    face_continuity[-1][-1] = frame_no
+                face_present = True
+            else:
+                print(f"End of face scene at {frame_no}. "
+                      f"It lasted from {face_continuity[-1][0]} to {face_continuity[-1][1]}")
+                face_present = False
             # predictions = [prediction] if prediction else None
             # image1 = predictor.place_landmarks(frame, predictions)
             image1 = frame
             image = face_metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
-            face_locations = face_detector.detect_faces(frame)
-            if face_locations:
-                face_location = ImageHelpers.get_square(image, face_locations[0])
+            if prediction:
+                face_location = predictor.get_face_square(frame, prediction)
+                face_location = ImageHelpers.get_square(image, face_location)
+                face_location = ImageHelpers.expand_image(image, face_location, expansion_factor=0.3)
             else:
                 face_location = last_goal
             last_goal = face_location
@@ -77,7 +92,6 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
             current_movement_speed = [int((last_movement_speed[0] + optimal_movement_speed[0]) / 2),
                                       int((last_movement_speed[1] + optimal_movement_speed[1]) / 2)]
             last_movement_speed = current_movement_speed
-            # current_movement_speed = (max(min_pixels_per_frame, item) for i, item in enumerate(current_movement_speed))
 
             optimal_diagonal = ImageHelpers.get_diagonal(face_location)
             last_diagonal = ImageHelpers.get_diagonal(last_location)
@@ -109,39 +123,35 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
 
             video_writer.write(image)
             video_writer1.write(image1)
-            # if frame_no == 60:
-            #     break
+            if frame_no > length_in_frames:
+                if not strict:
+                    return face_continuity
+                if sum([last - first for first, last in face_continuity]) > length_in_frames:
+                    return face_continuity
     except Exception as e:
         print(str(e))
+    finally:
+        video_writer.release()
+        video_writer1.release()
+
+
+def cut_face_lacking_scenes(video_path, output_path, metadata, size=(512, 512)):
+    video_writer = cv2.VideoWriter(output_path + ".avi", cv2.VideoWriter_fourcc(*"XVID"), 30, size)
+    for start_frame, end_frame in metadata:
+        image_generator = Deconstructor.video_to_images(video_path, start_frame=start_frame)
+        scene_length = end_frame - start_frame
+        for frame, frame_no in image_generator:
+            if frame_no > scene_length:
+                break
+            video_writer.write(frame)
     video_writer.release()
-    video_writer1.release()
-    # cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
-    video_path = "/home/jan/PycharmProjects/face-compression/data/videos/head_movement.mp4"
+    video_path = "/media/jan/Elements SE/Magisterka/youtube_dataset/schafter - bigos (feat Taco Hemingway).mp4"
     video_output_path = video_path.rstrip(".mp4") + "-metric-mask"
-    generate_landmarked_face_video(video_path, video_output_path)
-    # resize_width = 512
-    # if Path(video_path).exists():
-    #     print("Output path = {} exists!".format(video_path))
-    # else:
-    #     print("Output path = {} does not exist!".format(video_path))
-    #     sys.exit()
-    #
-    # frame_generator = Deconstructor().video_to_images(video_path)
-    # predictor = FaceLandmarksPredictorFAN()
-    # first_frame, _ = frame_generator.__next__()
-    # image = predictor.place_landmarks(first_frame)
-    # height, width, layers = image.shape
-    # scale = float(resize_width) / float(width)
-    # size = (resize_width, int(height * scale))
-    # video_writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*"XVID"), 30, size)
-    # for frame, frame_no in frame_generator:
-    #     image = predictor.place_landmarks(frame, resize_width=resize_width)
-    #     # cv2.imshow("output", image)
-    #     # cv2.waitKey(30)
-    #
-    #     video_writer.write(image)
-    # # cv2.destroyAllWindows()
-    # video_writer.release()
+    metadata = generate_landmarked_face_video(video_path, video_output_path, length=1, strict=True)
+    split_video_output_path = video_path.rstrip(".mp4") + "-split"
+    split_mask_video_output_path = video_path.rstrip(".mp4") + "-split-mask"
+    cut_face_lacking_scenes(video_output_path + ".avi", split_mask_video_output_path, metadata, size=(512, 512))
+    cut_face_lacking_scenes(video_output_path + "-real.avi", split_video_output_path, metadata, size=(512, 512))

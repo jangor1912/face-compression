@@ -7,6 +7,7 @@ import face_alignment
 import imutils
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.spatial import distance
 
 from config.config import Config
 from face_detection.misc.image_helpers import ImageHelpers
@@ -84,6 +85,69 @@ class FaceLandmarksPredictorFAN(object):
                            'eye2': pred_type(slice(42, 48), (0.596, 0.875, 0.541, 0.3)),
                            'lips': pred_type(slice(48, 60), (0.596, 0.875, 0.541, 0.3)),
                            'teeth': pred_type(slice(60, 68), (0.596, 0.875, 0.541, 0.4))}
+
+    def get_face_dimensions(self, predictions):
+        start = self.pred_types["face"].slice.start
+        stop = self.pred_types["face"].slice.stop - 1
+        first = predictions[start]
+        last = predictions[stop]
+        middle_down = predictions[int((stop - start)/2)]
+        middle_up = (first + last)/2
+
+        face_width = distance.euclidean(first, last)
+        face_height = distance.euclidean(middle_up, middle_down)
+        return face_width, face_height
+
+    def get_face_square(self, image, predictions):
+        # img_height, img_width, _ = np.array(image).shape
+        start = self.pred_types["face"].slice.start
+        stop = self.pred_types["face"].slice.stop - 1
+        first = predictions[start]
+        last = predictions[stop]
+        middle_down = predictions[int((stop - start)/2)]
+        middle_up = (first + last)/2
+
+        parameters = [first, last, middle_down, middle_up]
+
+        x1 = min(param[0] for param in parameters)
+        y1 = min(param[1] for param in parameters)
+        x2 = max(param[0] for param in parameters)
+        y2 = max(param[1] for param in parameters)
+        top = y1
+        left = x1
+        bottom = y2
+        right = x2
+
+        """
+        # make square
+        x_length = x2 - x1
+        y_length = y2 - y1
+        longer_side = max(x_length, y_length)
+        if y_length > x_length:
+            # rectangle is higher than wider
+            addition = y_length - x_length
+            x1 -= int(addition / 2)
+            x2 += int(addition / 2)
+        else:
+            # rectangle is wider than higher
+            addition = x_length - y_length
+            y1 -= int(addition / 2)
+            y2 += int(addition / 2)
+
+        # expand by 20%
+        expansion = int(longer_side * 0.2)
+        x1 -= int(expansion)
+        x2 += int(expansion)
+        y1 -= int(expansion)
+        y2 += int(expansion)
+
+        # normalise
+        x1 = max(x1, 0)
+        y1 = max(y1, 0)
+        x2 = min(x2, img_width)
+        y2 = min(y2, img_height)
+        """
+        return top, left, bottom, right
 
     def place_landmarks(self, image, predictions):
         # loop over the (x, y)-coordinates for the facial landmarks
