@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -11,15 +12,16 @@ from diagnoser.diagnoser import ModelDiagonoser
 
 
 class Training(object):
-    def __init__(self, model, training_sequence, validation_sequence, metric, callbacks):
+    def __init__(self, model, training_sequence, validation_sequence, metric, callbacks, output_dir):
         self.model = model
         self.training_sequence = training_sequence
         self.validation_sequence = validation_sequence
         self.metric = metric
         self.callbacks = callbacks
+        self.output_dir = output_dir
 
     def train(self):
-        self.model.compile(loss=self.metric, optimizer='adam', metrics=[self.metric, "mse", "acc"])
+        self.model.compile(loss=self.metric, optimizer='adam', metrics=[self.metric, "mse", "mae"])
 
         # create ordered queues
         train_enqueuer = OrderedEnqueuer(self.training_sequence, use_multiprocessing=True, shuffle=True)
@@ -30,14 +32,15 @@ class Training(object):
         test_gen = test_enqueuer.get()
         # train model
         history = self.model.fit_generator(generator=train_gen,
-                                           epochs=10,
+                                           epochs=250,
                                            validation_data=next(test_gen),
                                            verbose=2,
                                            steps_per_epoch=len(self.training_sequence),
                                            validation_steps=len(self.validation_sequence),
                                            callbacks=self.callbacks)
+        # self.model.save(str(Path(self.output_dir, 'model.h5')))
         # plot metrics
-        self.plot_results(history, self.callbacks[0].output_dir)
+        self.plot_results(history, self.output_dir)
 
     @staticmethod
     def plot_results(history, output_path):
@@ -76,18 +79,18 @@ class Training(object):
                    history["val_mean_squared_error"], delimiter=",")
 
         plt.figure()
-        plt.plot(epochs, history["acc"], color="blue", label="training")
-        plt.plot(epochs, history["val_acc"], color="red", label="validation")
+        plt.plot(epochs, history["mean_absolute_error"], color="blue", label="training")
+        plt.plot(epochs, history["val_mean_absolute_error"], color="red", label="validation")
         plt.xlabel("Epochs")
-        plt.ylabel("Accuracy value")
+        plt.ylabel("MAE value")
         plt.legend(["training", "validation"], loc='upper left')
-        plt.title('Accuracy metric')
+        plt.title('MAE metric')
         # plt.show()
-        plt.savefig(str(Path(output_path, 'accuracy-metric.png')))
+        plt.savefig(str(Path(output_path, 'mae-metric.png')))
         plt.close()
-        np.savetxt(str(Path(output_path, 'accuracy-metric.csv')), history["acc"], delimiter=",")
-        np.savetxt(str(Path(output_path, 'accuracy-metric-validation.csv')),
-                   history["val_acc"], delimiter=",")
+        np.savetxt(str(Path(output_path, 'mae-metric.csv')), history["mean_absolute_error"], delimiter=",")
+        np.savetxt(str(Path(output_path, 'mae-metric-validation.csv')),
+                   history["val_mean_absolute_error"], delimiter=",")
 
         plt.figure()
         plt.plot(epochs, y_loss, color="blue", label="training")
@@ -105,9 +108,9 @@ class Training(object):
 
 
 def train_small():
-    train_directory = Path("G:/Magisterka/kaggle_dataset/small/train/final")
-    test_directory = Path("G:/Magisterka/kaggle_dataset/small/test/final")
-    batch_size = 4
+    train_directory = Path("G:/Magisterka/kaggle_dataset/small/train/no_blur")
+    test_directory = Path("G:/Magisterka/kaggle_dataset/small/test/no_blur")
+    batch_size = 8
     frames_no = 8
     input_shape = (32, 32, 3)
     latent_size = 512
@@ -132,7 +135,8 @@ def train_small():
                  training_sequence=train_seq,
                  validation_sequence=test_seq,
                  metric=metric,
-                 callbacks=callbacks)
+                 callbacks=callbacks,
+                 output_dir=samples_dir)
     t.train()
 
 

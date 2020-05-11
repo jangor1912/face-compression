@@ -18,9 +18,10 @@ class FaceMetric(object):
         produced_image = y_pred
         original_image = y_true[0]
         mask = y_true[1]
-        mask += 1.0  # This means that mask values belong to <0, 2>
+        mask += 2.0  # This means that mask values belong to <1, 3>
         mse_tensor = tf.square(tf.subtract(original_image, produced_image))
-        return tf.reduce_mean(tf.multiply(mse_tensor, mask))
+        result = tf.reduce_mean(tf.multiply(mse_tensor, mask))
+        return result * 100.0
 
     @classmethod
     def get_loss_from_batch(cls, y_true_batch, y_pred_batch):

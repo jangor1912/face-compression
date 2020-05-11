@@ -21,7 +21,7 @@ class BatchSequence(Sequence):
         self.batch_size = batch_size
         self._init_directory()
 
-        self.estimated_video_length = 8  # seconds
+        self.estimated_video_length = 3  # seconds
         self.video_frame_rate = 30  # fps
         self.video_length = self.estimated_video_length * self.video_frame_rate  # in frames
         self._check_data_set()
@@ -66,10 +66,10 @@ class BatchSequence(Sequence):
     def _init_directory(self):
         files = {join(self.data_dir, f) for f in os.listdir(self.data_dir) if isfile(join(self.data_dir, f))}
         for video_path in files:
-            if video_path.endswith(".avi") and not video_path.endswith("-real.avi"):
-                mask_video = video_path
-                real_video = video_path[:-4] + "-real.avi"
-                self.videos_paths.append((real_video, mask_video))
+            if video_path.endswith("-split.avi"):
+                org_video_path = video_path[:video_path.find("-split.avi")]
+                mask_video = org_video_path + "-split-mask.avi"
+                self.videos_paths.append((video_path, mask_video))
         random.shuffle(self.videos_paths)
 
     def _check_data_set(self):

@@ -29,6 +29,8 @@ class Deconstructor(object):
         except Exception as e:
             message = "Error during getting video {} length. Error = {}".format(video_path, str(e))
             raise RuntimeError(str(message))
+        finally:
+            vidcap.release()
 
     @staticmethod
     def video_to_images(video_path, start_frame=0):
