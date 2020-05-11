@@ -14,11 +14,11 @@ from video.deconstructor.deconstructor import Deconstructor
 CONF = Config().CONF
 
 
-def generate_landmarked_face_video(input_path, output_path, output_size=512):
+def generate_landmarked_face_video(input_path, output_path, output_size=512, strict=False, length=10):
     if not Path(input_path).exists():
         raise RuntimeError("Input path = {} does not exist!".format(input_path))
 
-    frame_generator = Deconstructor().video_to_images(input_path)
+    frame_generator = Deconstructor.video_to_images(input_path)
     face_detector = FaceDetector(model="hog")
     predictor = FaceLandmarksPredictorFAN(device="cpu")
     face_metric = FaceMetric(predictor)
@@ -48,6 +48,10 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
 
     resize_smoothness = 4.0
     movement_smoothness = 4.0
+
+    face_continuity = []
+    face_present = False
+    length_in_frames = int(30 * length)
     try:
         for frame, frame_no in frame_generator:
             print("Processing frame = {}".format(frame_no))
@@ -56,11 +60,26 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
             # frame = cv2.resize(frame, (int(img_width * 0.3), int(img_height * 0.3)), interpolation=cv2.INTER_AREA)
 
             prediction = predictor.detect_one_face_landmark(frame)
+
+            # fill face metadata -> sections that include face
+            if prediction is not None:
+                if not face_continuity:
+                    face_continuity.append([frame_no, frame_no])
+                    print(f"Begin face scene at {frame_no}")
+                elif not face_present:
+                    face_continuity.append([frame_no, frame_no])
+                    print(f"New face scene at {frame_no}")
+                else:
+                    face_continuity[-1][-1] = frame_no
+                face_present = True
+            else:
+                print(f"End of face scene at {frame_no}. "
+                      f"It lasted from {face_continuity[-1][0]} to {face_continuity[-1][1]}")
+                face_present = False
             # predictions = [prediction] if prediction else None
             # image1 = predictor.place_landmarks(frame, predictions)
             image1 = frame
-            image = face_metric.generate_mask(prediction, img_height=img_height, img_width=img_width,
-                                              output_size=output_size)
+            image = face_metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
             face_locations = face_detector.detect_faces(frame)
             if face_locations:
                 face_location = ImageHelpers.get_square(image, face_locations[0])
@@ -112,17 +131,40 @@ def generate_landmarked_face_video(input_path, output_path, output_size=512):
             video_writer1.write(image1)
             # if frame_no == 60:
             #     break
+            if frame_no > length_in_frames:
+                if not strict:
+                    return face_continuity
+                if sum([last - first for first, last in face_continuity]) > length_in_frames:
+                    return face_continuity
     except Exception as e:
         print(str(e))
-    video_writer.release()
-    video_writer1.release()
+    finally:
+        video_writer.release()
+        video_writer1.release()
     # cv2.destroyAllWindows()
+
+
+def cut_face_lacking_scenes(video_path, output_path, metadata, size=(512, 512)):
+    video_writer = cv2.VideoWriter(output_path + ".avi", cv2.VideoWriter_fourcc(*"XVID"), 30, size)
+    for start_frame, end_frame in metadata:
+        image_generator = Deconstructor.video_to_images(video_path, start_frame=start_frame)
+        scene_length = end_frame - start_frame
+        for frame, frame_no in image_generator:
+            if frame_no > scene_length:
+                break
+            video_writer.write(frame)
+    video_writer.release()
 
 
 if __name__ == "__main__":
     video_path = "/home/jan/PycharmProjects/face-compression/data/videos/head_movement.mp4"
     video_output_path = video_path.rstrip(".mp4") + "-metric-mask"
-    generate_landmarked_face_video(video_path, video_output_path)
+    metadata = generate_landmarked_face_video(video_path, video_output_path, length=1, strict=True)
+    split_video_output_path = video_path.rstrip(".mp4") + "-split"
+    split_mask_video_output_path = video_path.rstrip(".mp4") + "-split-mask"
+    cut_face_lacking_scenes(video_output_path + ".avi", split_mask_video_output_path, (512, 512), metadata)
+    cut_face_lacking_scenes(video_output_path + "-real.avi", split_video_output_path, (512, 512), metadata)
+
     # resize_width = 512
     # if Path(video_path).exists():
     #     print("Output path = {} exists!".format(video_path))
