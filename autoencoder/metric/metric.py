@@ -1,3 +1,5 @@
+import math
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,6 +36,7 @@ class FaceMetric(object):
     def generate_mask(self, face_prediction, img_height=None, img_width=None):
         img_height = img_height or self.size
         img_width = img_width or self.size
+        face_width, face_height = self.predictor.get_face_dimensions(face_prediction)
 
         # draw background
         mask = Image.new('RGB', (img_width, img_height), color=self.gray)
@@ -51,8 +54,11 @@ class FaceMetric(object):
         radius = np.math.fabs(last[0] - first[0]) / 2
         upper_left = (first[0], first[1] - radius)
         down_right = (last[0], last[1] + radius)
-        draw.ellipse([upper_left, down_right],
-                     outline=self.middle, fill=self.middle)
+        try:
+            draw.ellipse([upper_left, down_right],
+                         outline=self.middle, fill=self.middle)
+        except Exception as e:
+            print(f"Exception during ellipse drawing occurred. Exception = {str(e)}")
 
         # draw eyebrows
         draw.polygon(face_prediction[self.predictor.pred_types["eyebrow1"].slice],
@@ -68,16 +74,15 @@ class FaceMetric(object):
 
         # draw nose
         draw.line(face_prediction[self.predictor.pred_types["nostril"].slice],
-                  fill=self.white, width=int(img_height / 100))
+                  fill=self.white, width=math.ceil(face_height / 50))
         draw.line(face_prediction[self.predictor.pred_types["nose"].slice],
-                  fill=self.white, width=int(img_height / 100))
+                  fill=self.white, width=math.ceil(face_height / 50))
 
         # draw lips
-        points = face_prediction[self.predictor.pred_types["lips"].slice]
-        draw.polygon(points, outline=self.white, fill=self.white)
-        draw.line(points, fill=self.white, width=int(img_height / 100))
+        draw.polygon(face_prediction[self.predictor.pred_types["lips"].slice],
+                     outline=self.white, fill=self.white)
         draw.line(face_prediction[self.predictor.pred_types["teeth"].slice],
-                  fill=self.white, width=int(img_height / 200))
+                  fill=self.white, width=math.ceil(face_height / 100))
 
         mask = np.array(mask)
         return mask

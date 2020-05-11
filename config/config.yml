@@ -10,3 +10,4 @@ directory:
 path:
   cnn_face_model: models/cnn-face-model/mmod_human_face_detector.dat
   face_landmarks_model: models/face-landmark-model/shape_predictor_68_face_landmarks.dat
+  downloaded_urls: data/csv/downloaded_urls.csv

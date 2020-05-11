@@ -1,7 +1,7 @@
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-import utils
+from common import utils
 from config.config import Config
 from video.deconstructor.deconstructor import Deconstructor
 from video.downloader.downloader import Downloader
@@ -15,7 +15,7 @@ class VideoManager(object):
         self.youtube_api_version = 'v3'
         self.baseUrl = 'https://www.youtube.com/watch?v='
         self.max_results = max_results
-        self.downloaded_urls_csv = config['csv']['downloaded_urls']
+        self.downloaded_urls_csv = config['path']['downloaded_urls']
 
         self.downloader = Downloader()
         self.deconstructor = Deconstructor()
@@ -51,9 +51,9 @@ class VideoManager(object):
                     csv_file.write(url)
 
                 try:
-                    callback_method = self.deconstructor.after_download
+                    # callback_method = self.deconstructor.after_download
                     print("Started downloading from url={}".format(url))
-                    self.downloader.download_video(url, callback_method)
+                    self.downloader.download_video(url)
                 except Exception as url_exception:
                     print("Url = {} failed to process".format(url))
                     print("\tException message = {}".format(str(url_exception)))

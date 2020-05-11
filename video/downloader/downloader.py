@@ -4,14 +4,16 @@ from pytube import YouTube
 
 
 class Downloader(object):
-    def __init__(self, res='1080p', vcodec=None, acodec=None):
+    def __init__(self, directory, res='1080p', vcodec=None, acodec=None):
+        self.directory = directory
         self.res = res
         self.vcodec = vcodec
         self.acodec = acodec
         self.mime_type = 'video/mp4'
 
     def download_video(self, url, callback_method=None):
-        filter_kwargs = {"mime_type": self.mime_type}
+        filter_kwargs = {"mime_type": self.mime_type,
+                         "res": self.res}
         if self.acodec:
             filter_kwargs["audio_codec"] = self.acodec
         if self.vcodec:
@@ -22,10 +24,11 @@ class Downloader(object):
         video = yt.streams.filter(**filter_kwargs).first()
         if video is None:
             raise RuntimeError("Video with such parameters do not exists")
-        video.download()
+        video.download(output_path=self.directory)
 
 
 if __name__ == "__main__":
-    url = sys.argv[1]
-    downloader = Downloader()
+    # url = sys.argv[1]
+    url = 'https://www.youtube.com/watch?v=_c5jK1lq4JU'
+    downloader = Downloader("/media/jan/Elements SE/Magisterka/youtube_dataset")
     downloader.download_video(url)
