@@ -20,6 +20,18 @@ class Deconstructor(object):
         os.remove(video_path)
 
     @staticmethod
+    def save_video(video_path, frame_list, frame_rate, size):
+        size = (size, size)
+        video_writer = cv2.VideoWriter(video_path, cv2.VideoWriter_fourcc(*"XVID"), frame_rate, size)
+        try:
+            for frame in frame_list:
+                video_writer.write(frame)
+        except Exception as e:
+            print(f"Error while saving video {video_path}. Error = {str(e)}")
+        finally:
+            video_writer.release()
+
+    @staticmethod
     def get_video_length(video_path: Path) -> int:  # in frames
         vidcap = cv2.VideoCapture(video_path)
         try:
@@ -44,7 +56,7 @@ class Deconstructor(object):
             message = "Error during skipping frames. Error = {}".format(str(e))
             raise RuntimeError(str(message))
         success, image = vidcap.read()
-        count = 0
+        count = start_frame
         while success:
             yield image, count
             success, image = vidcap.read()

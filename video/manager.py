@@ -8,7 +8,7 @@ from video.downloader.downloader import Downloader
 
 
 class VideoManager(object):
-    def __init__(self, max_results=50):
+    def __init__(self, directory, max_results=50):
         config = Config().CONF
         self.develper_key = config['youtube']['developer_key']
         self.youtube_api_service_name = 'youtube'
@@ -17,10 +17,10 @@ class VideoManager(object):
         self.max_results = max_results
         self.downloaded_urls_csv = config['path']['downloaded_urls']
 
-        self.downloader = Downloader()
+        self.downloader = Downloader(directory)
         self.deconstructor = Deconstructor()
 
-    def youtube_search(self, query):
+    def youtube_search(self, query, video_duration="short", **kwargs):
         youtube = build(self.youtube_api_service_name,
                         self.youtube_api_version,
                         developerKey=self.develper_key)
@@ -28,7 +28,10 @@ class VideoManager(object):
         search_response = youtube.search().list(
             q=query,
             part='id,snippet',
-            maxResults=self.max_results
+            maxResults=self.max_results,
+            type="video",
+            videoDuration=video_duration,
+            **kwargs
         ).execute()
 
         results = search_response.get('items', [])
@@ -37,18 +40,16 @@ class VideoManager(object):
         return results
 
     def start_processing(self, queries):
+        downloaded_urls = set(utils.load_csv_rows(self.downloaded_urls_csv, 'url'))
         for query in queries:
             urls = self.youtube_search(query)
             for url in urls:
-                # check if url hasn't been downloaded yet
-                urls = utils.load_csv_rows(self.downloaded_urls_csv, 'url')
-                if url in urls:
+                if url in downloaded_urls:
+                    print(f"Url {url} has been already processed")
                     continue
-                urls = []
-
-                # append new url to csv
-                with open(self.downloaded_urls_csv, 'a') as csv_file:
-                    csv_file.write(url)
+                # append new url to csv and set
+                utils.append_csv_row(self.downloaded_urls_csv, ["url"], {"url": url})
+                downloaded_urls.add(url)
 
                 try:
                     # callback_method = self.deconstructor.after_download
@@ -60,9 +61,10 @@ class VideoManager(object):
 
 
 if __name__ == '__main__':
-    manager = VideoManager(max_results=1)
+    queries = ["interview", "standup", "vlog", "speech", "music video", "reaction", "talks", "face expression", "news",
+               "daily vlog", "acting", "challenge", "tik tok", "workout", "super model"]
+    manager = VideoManager("/media/jan/Elements SE/Magisterka/youtube_dataset", max_results=100)
     try:
-        manager.start_processing(['Chorwacja i Wlochy 2017 jan gorazda'])
+        manager.start_processing(queries)
     except HttpError as e:
         print('An HTTP error %d occurred:\n%s' % (e.resp.status, e.content))
-

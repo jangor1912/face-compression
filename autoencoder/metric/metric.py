@@ -37,7 +37,6 @@ class FaceMetric(object):
     def generate_mask(self, face_prediction, img_height=None, img_width=None):
         img_height = img_height or self.size
         img_width = img_width or self.size
-        face_width, face_height = self.predictor.get_face_dimensions(face_prediction)
 
         # draw background
         mask = Image.new('RGB', (img_width, img_height), color=self.gray)
@@ -46,6 +45,7 @@ class FaceMetric(object):
             mask = np.array(mask)
             return mask
 
+        face_width, face_height = self.predictor.get_face_dimensions(face_prediction)
         # draw face
         draw.polygon(face_prediction[self.predictor.pred_types["face"].slice],
                      outline=self.middle, fill=self.middle)

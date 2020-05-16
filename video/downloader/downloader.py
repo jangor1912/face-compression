@@ -1,5 +1,3 @@
-import sys
-
 from pytube import YouTube
 
 
@@ -29,6 +27,6 @@ class Downloader(object):
 
 if __name__ == "__main__":
     # url = sys.argv[1]
-    url = 'https://www.youtube.com/watch?v=_c5jK1lq4JU'
+    url = 'https://www.youtube.com/watch?v=u41Zt6z5s7A'
     downloader = Downloader("/media/jan/Elements SE/Magisterka/youtube_dataset")
     downloader.download_video(url)
