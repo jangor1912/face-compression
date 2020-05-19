@@ -1,7 +1,7 @@
 import os
 from os.path import isfile, join
 
-from video.video_to_landmarks import generate_landmarked_face_video, cut_face_lacking_scenes
+from video.face_tracker import generate_landmarked_face_video, cut_face_lacking_scenes
 
 
 def main(videos_dir, final_dir):

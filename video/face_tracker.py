@@ -1,4 +1,6 @@
 import math
+import os
+import sys
 from pathlib import Path
 
 import cv2
@@ -47,6 +49,7 @@ class FaceTracker(object):
         frame_increase = int(video_length / self.clip_number)
         clip_number = 0
         start_frame = 0
+        failure_number = 0
         while clip_number < self.clip_number:
             try:
                 face_clip, mask_clip = next(self.yield_face_clip(input_path, start_frame=start_frame))
@@ -55,11 +58,15 @@ class FaceTracker(object):
                 Deconstructor.save_video(output_path + f"-video{clip_number}-mask.avi", mask_clip,
                                          self.frame_rate, self.output_size)
                 clip_number += 1
+                failure_number = 0
                 start_frame = clip_number * frame_increase
             except ClipNotFormedError as e:
+                seconds_forward = np.power(2, failure_number)
+                print(f"Forming clip starting at {start_frame} failed."
+                      f" Moving cursor forward by {seconds_forward} second(s)")
                 print(e)
-                # Move video forward by one second
-                start_frame += self.frame_rate
+                start_frame += self.frame_rate * seconds_forward
+                failure_number += 1
 
     def yield_face_clip(self, input_path, start_frame=0):
         """Method that yields tuple (face_clip, mask_clip) if face could be tracked,
@@ -90,7 +97,7 @@ class FaceTracker(object):
             raise RuntimeError("Input path = {} does not exist!".format(input_path))
 
         frame_generator = Deconstructor.video_to_images(input_path, start_frame=start_frame)
-        predictor = FaceLandmarksPredictorFAN(device="cpu")
+        predictor = FaceLandmarksPredictorFAN(device="cuda")
         face_metric = FaceMetric(predictor)
         size = (self.output_size, self.output_size)
 
@@ -184,8 +191,14 @@ class FaceTracker(object):
 
 
 if __name__ == "__main__":
-    video_path = "/media/jan/Elements SE/Magisterka/youtube_dataset/The Budget Phone Blueprint!.mp4"
-    video_output_path = video_path.rstrip(".mp4") + "-processed"
-    face_tracker = FaceTracker(clip_length=0.3, clip_number=4)
+    # videos_dir = "/media/jan/Elements SE/Magisterka/youtube_dataset"
+    # output_dir = "/media/jan/Elements SE/Magisterka/youtube_dataset/output"
+    # current_video = "The Budget Phone Blueprint!.mp4"
+    videos_dir = sys.argv[1]
+    output_dir = sys.argv[2]
+    current_video = sys.argv[3]
+    video_path = os.path.join(videos_dir, current_video)
+    video_output_path = os.path.join(output_dir, current_video.rstrip(".mp4") + "-processed")
+    face_tracker = FaceTracker(clip_length=2, clip_number=4)
     face_tracker.video_to_clips(input_path=video_path,
                                 output_path=video_output_path)
