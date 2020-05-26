@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import ImageDraw, Image
 
-from face_detection.face_landmarks import FaceLandmarksPredictorFAN
+# from face_detection.face_landmarks import FaceLandmarksPredictorFAN
 
 
 class FaceMetric(object):
@@ -89,19 +89,19 @@ class FaceMetric(object):
         return mask
 
 
-def main():
-    image_path = "/home/jan/PycharmProjects/face-compression/data/images/my_face_front.png"
-    predictor = FaceLandmarksPredictorFAN(_type='2d')
-    image = cv2.imread(image_path)
-    img_height, img_width, _ = np.array(image).shape
-    metric = FaceMetric(predictor)
-    prediction = predictor.detect_one_face_landmark(image)
-    mask = metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
-    fig = plt.figure(figsize=plt.figaspect(.5))
-    ax = fig.add_subplot()
-    ax.imshow(np.array(mask))
-    plt.show()
-
-
-if __name__ == "__main__":
-    main()
+# def main():
+#     image_path = "/home/jan/PycharmProjects/face-compression/data/images/my_face_front.png"
+#     predictor = FaceLandmarksPredictorFAN(_type='2d')
+#     image = cv2.imread(image_path)
+#     img_height, img_width, _ = np.array(image).shape
+#     metric = FaceMetric(predictor)
+#     prediction = predictor.detect_one_face_landmark(image)
+#     mask = metric.generate_mask(prediction, img_height=img_height, img_width=img_width)
+#     fig = plt.figure(figsize=plt.figaspect(.5))
+#     ax = fig.add_subplot()
+#     ax.imshow(np.array(mask))
+#     plt.show()
+#
+#
+# if __name__ == "__main__":
+#     main()

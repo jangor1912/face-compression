@@ -1,7 +1,9 @@
 import json
 import os
 import random
+import re
 from os.path import isfile, join
+from pathlib import Path
 
 
 def main(path, train_path, test_path):
@@ -33,8 +35,42 @@ def main(path, train_path, test_path):
         os.rename(join(cwd, file), join(test_path, file))
 
 
+def get_video_mask_tuples(videos_directory):
+    result = []
+    files = os.listdir(videos_directory)
+    for video_path in files:
+        if re.search(r'.*-processed-video\d.avi', video_path):
+            org_video_path = video_path[:video_path.find(".avi")]
+            mask_video = org_video_path + "-mask.avi"
+            result.append((video_path, mask_video))
+    return result
+
+
+def populate_directories(videos_dir, train_dir, test_dir):
+    all_videos = get_video_mask_tuples(videos_dir)
+    random.shuffle(all_videos)
+    videos_no = len(all_videos)
+    split = int(videos_no * 0.7)
+    train_files = all_videos[:split]
+    test_files = all_videos[split:]
+
+    for video, mask in train_files:
+        try:
+            os.rename(join(videos_dir, video), join(train_dir, video))
+            os.rename(join(videos_dir, mask), join(train_dir, mask))
+        except Exception as e:
+            print(f"Error while processing train video {video}. Error = {str(e)}")
+
+    for video, mask in test_files:
+        try:
+            os.rename(join(videos_dir, video), join(test_dir, video))
+            os.rename(join(videos_dir, mask), join(test_dir, mask))
+        except Exception as e:
+            print(f"Error while processing test video {video}. Error = {str(e)}")
+
+
 if __name__ == "__main__":
-    videos_path = "G:/Magisterka/kaggle_dataset/small/train_sample_videos"
-    train = "G:/Magisterka/kaggle_dataset/small/train"
-    test = "G:/Magisterka/kaggle_dataset/small/test"
-    main(videos_path, train, test)
+    videos_path = Path("G:/Magisterka/youtube_dataset/output/all")
+    train = Path("G:/Magisterka/youtube_dataset/output/train")
+    test = Path("G:/Magisterka/youtube_dataset/output/test")
+    populate_directories(videos_path, train, test)

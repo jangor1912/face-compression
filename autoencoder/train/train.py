@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -12,13 +11,14 @@ from diagnoser.diagnoser import ModelDiagonoser
 
 
 class Training(object):
-    def __init__(self, model, training_sequence, validation_sequence, metric, callbacks, output_dir):
+    def __init__(self, model, training_sequence, validation_sequence, metric, callbacks, output_dir, epochs=100):
         self.model = model
         self.training_sequence = training_sequence
         self.validation_sequence = validation_sequence
         self.metric = metric
         self.callbacks = callbacks
         self.output_dir = output_dir
+        self.epochs= epochs
 
     def train(self):
         self.model.compile(loss=self.metric, optimizer='adam', metrics=[self.metric, "mse", "mae"])
@@ -32,7 +32,7 @@ class Training(object):
         test_gen = test_enqueuer.get()
         # train model
         history = self.model.fit_generator(generator=train_gen,
-                                           epochs=250,
+                                           epochs=self.epochs,
                                            validation_data=next(test_gen),
                                            verbose=2,
                                            steps_per_epoch=len(self.training_sequence),
@@ -107,9 +107,7 @@ class Training(object):
                    y_val_loss, delimiter=",")
 
 
-def train_small():
-    train_directory = Path("G:/Magisterka/kaggle_dataset/small/train/no_blur")
-    test_directory = Path("G:/Magisterka/kaggle_dataset/small/test/no_blur")
+def train_small(train_directory, test_directory, samples_directory, epochs=100):
     batch_size = 8
     frames_no = 8
     input_shape = (32, 32, 3)
@@ -121,8 +119,7 @@ def train_small():
                              batch_size=batch_size, frames_no=frames_no)
 
     num_samples = 3  # samples to be generated each epoch
-    samples_dir = Path("G:/Magisterka/kaggle_dataset/small/results/samples")
-    callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_dir)]
+    callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
 
     metric = FaceMetric.get_loss_from_batch
     encoder = LSTMEncoder32(inputShape=input_shape, batchSize=batch_size, framesNo=frames_no,
@@ -136,9 +133,13 @@ def train_small():
                  validation_sequence=test_seq,
                  metric=metric,
                  callbacks=callbacks,
-                 output_dir=samples_dir)
+                 output_dir=samples_directory,
+                 epochs=epochs)
     t.train()
 
 
 if __name__ == "__main__":
-    train_small()
+    train_directory = Path("G:/Magisterka/youtube_dataset/output/train")
+    test_directory = Path("G:/Magisterka/youtube_dataset/output/test")
+    samples_dir = Path("G:/Magisterka/youtube_dataset/output/samples")
+    train_small(train_directory, test_directory, samples_dir, epochs=250)

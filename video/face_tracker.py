@@ -52,11 +52,14 @@ class FaceTracker(object):
         failure_number = 0
         while clip_number < self.clip_number:
             try:
+                print(f"Started creating face clip at frame {start_frame}")
                 face_clip, mask_clip = next(self.yield_face_clip(input_path, start_frame=start_frame))
                 Deconstructor.save_video(output_path + f"-video{clip_number}.avi", face_clip,
                                          self.frame_rate, self.output_size)
                 Deconstructor.save_video(output_path + f"-video{clip_number}-mask.avi", mask_clip,
                                          self.frame_rate, self.output_size)
+                print(f"Successfully created face clip from frame {start_frame} "
+                      f"to frame {start_frame + self.frame_rate * self.clip_length}")
                 clip_number += 1
                 failure_number = 0
                 start_frame = clip_number * frame_increase
@@ -95,7 +98,6 @@ class FaceTracker(object):
         """Method that yields tuple (face_img, face_mask) if one exists else it yields None"""
         if not Path(input_path).exists():
             raise RuntimeError("Input path = {} does not exist!".format(input_path))
-
         frame_generator = Deconstructor.video_to_images(input_path, start_frame=start_frame)
         predictor = FaceLandmarksPredictorFAN(device="cuda")
         face_metric = FaceMetric(predictor)
@@ -124,7 +126,6 @@ class FaceTracker(object):
         movement_smoothness = 4.0
         try:
             for frame, frame_no in frame_generator:
-                print(f"Processing frame = {frame_no}")
                 img_height, img_width, _ = np.array(frame).shape
 
                 prediction = predictor.detect_one_face_landmark(frame)
