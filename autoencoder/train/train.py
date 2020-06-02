@@ -5,6 +5,7 @@ import numpy as np
 from tensorflow.python.keras.utils import OrderedEnqueuer
 
 from autoencoder.metric.metric import FaceMetric
+from autoencoder.models.big import LSTMEncoder128, LSTMDecoder128
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
 from dataset.batch_generator import BatchSequence
 from diagnoser.diagnoser import ModelDiagonoser
@@ -126,6 +127,35 @@ def train_small(train_directory, test_directory, samples_directory, epochs=100):
                             latentSize=latent_size, latentConstraints='bvae', alpha=50., beta=10., capacity=512.,
                             randomSample=True)
     decoder = LSTMDecoder32(inputShape=input_shape, batchSize=batch_size, latentSize=latent_size)
+    auto_encoder = VariationalAutoEncoder(encoder, decoder)
+    auto_encoder.summary()
+    t = Training(model=auto_encoder.model,
+                 training_sequence=train_seq,
+                 validation_sequence=test_seq,
+                 metric=metric,
+                 callbacks=callbacks,
+                 output_dir=samples_directory,
+                 epochs=epochs)
+    t.train()
+
+
+def train_big(train_directory, test_directory, samples_directory, epochs=100):
+    batch_size = 8
+    frames_no = 8
+    input_shape = (128, 128, 3)
+    latent_size = 1024
+
+    train_seq = BatchSequence(train_directory, input_size=input_shape[:-1],
+                              batch_size=batch_size, frames_no=frames_no)
+    test_seq = BatchSequence(test_directory, input_size=input_shape[:-1],
+                             batch_size=batch_size, frames_no=frames_no)
+
+    num_samples = 3  # samples to be generated each epoch
+    callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
+
+    metric = FaceMetric.get_loss_from_batch
+    encoder = LSTMEncoder128(batch_size=batch_size, alpha=50., beta=10.)
+    decoder = LSTMDecoder128(batch_size=batch_size)
     auto_encoder = VariationalAutoEncoder(encoder, decoder)
     auto_encoder.summary()
     t = Training(model=auto_encoder.model,
