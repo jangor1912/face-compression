@@ -25,7 +25,9 @@ class BatchSequence(Sequence):
         self.estimated_video_length = 1.5  # seconds
         self.video_frame_rate = 30  # fps
         self.video_length = self.estimated_video_length * self.video_frame_rate  # in frames
-        self._check_data_set()
+        print(f"Started checking dataset in folder {self.data_dir}")
+        # self._check_data_set()
+        print(f"Finished checking dataset in folder {self.data_dir}")
 
     def __len__(self):
         sequences_per_video = int(self.estimated_video_length * self.video_frame_rate / self.frames_no)
@@ -74,13 +76,17 @@ class BatchSequence(Sequence):
         random.shuffle(self.videos_paths)
 
     def _check_data_set(self):
-        for video_path, mask_path in self.videos_paths:
+        for i, video_tuple in enumerate(self.videos_paths):
+            video_path, mask_path = video_tuple
+            print(f"Checking face video {video_path}")
             video_length = Deconstructor.get_video_length(video_path)
+            print(f"Checking mask video {mask_path}")
             mask_length = Deconstructor.get_video_length(mask_path)
             if video_length <= self.video_length:
                 raise RuntimeError(f"Video {video_path} is shorter than estimated video length")
             if mask_length <= self.video_length:
                 raise RuntimeError(f"Video {mask_path} is shorter than estimated video length")
+            print(f"Checked {i}/{len(self.videos_paths)}")
 
     def get_input(self, video_path, mask_path, start_frame):
         video_sequence = list()
@@ -89,7 +95,7 @@ class BatchSequence(Sequence):
             frame_generator = Deconstructor.video_to_images(video_path, start_frame=start_frame)
             mask_generator = Deconstructor.video_to_images(mask_path, start_frame=start_frame)
             for (frame, frame_no), (mask, mask_no) in zip(frame_generator, mask_generator):
-                if frame_no >= self.frames_no:
+                if frame_no >= start_frame + self.frames_no:
                     break
                 frame = cv2.resize(frame, self.input_size, interpolation=cv2.INTER_AREA)
                 mask = cv2.resize(mask, self.input_size, interpolation=cv2.INTER_AREA)
@@ -101,8 +107,8 @@ class BatchSequence(Sequence):
                 video_sequence.append(frame)
                 mask_sequence.append(mask)
             if len(video_sequence) != self.frames_no:
-                raise RuntimeError("Sequence of {} frames cannot be read from video {}. Already read {} frames."
-                                   .format(self.frames_no, video_path, len(video_sequence)))
+                raise RuntimeError(f"Sequence of {self.frames_no} frames cannot be read from video {video_path}, "
+                                   f"starting at frame {start_frame}. Already read {len(video_sequence)} frames.")
         except Exception:
             raise
         return np.array(video_sequence), np.array(mask_sequence)
@@ -119,17 +125,19 @@ class BatchSequence(Sequence):
 
     @classmethod
     def np_img_to_rgb_image(cls, np_image):
-        np_image = np_image + 1
-        np_image = np_image * (255/2)
+        np_image += 1.0
+        np_image *= 255.0/2.0
         np_image = np.uint8(np_image)
-        rgb_image = Image.fromarray(np_image, mode="RGB")
-        return rgb_image
+        bgr_img = Image.fromarray(np_image, mode="RGB")
+        b, g, r = bgr_img.split()
+        final_img = Image.merge("RGB", (r, g, b))
+        return final_img
 
     @classmethod
     def rgb_image_to_np_array(cls, rgb_img):
         rgb_img = np.array(rgb_img, dtype=np.float32)
-        rgb_img *= 2/255
-        rgb_img -= 1
+        rgb_img *= 2.0/255.0
+        rgb_img -= 1.0
         return rgb_img
 
 
@@ -139,7 +147,7 @@ def test(input_dir, output_dir):
     enqueuer = OrderedEnqueuer(sequence, use_multiprocessing=True, shuffle=True)
     print("Length of sequence is {}.".format(len(sequence)))
     start_time = time()
-    enqueuer.start(workers=4, max_queue_size=24)
+    enqueuer.start(workers=4, max_queue_size=128)
     generator = enqueuer.get()
     img_no = 0
     for _ in range(10):
@@ -162,5 +170,5 @@ def test(input_dir, output_dir):
 
 
 if __name__ == "__main__":
-    test("G:/Magisterka/kaggle_dataset/small/train/final",
+    test("G:/Magisterka/youtube_dataset/output/train",
          "G:/Magisterka/temporary")
