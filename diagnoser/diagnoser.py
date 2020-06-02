@@ -9,6 +9,8 @@ from tensorflow.python.keras.callbacks import Callback
 # from tensorflow.python.keras.engine.training import GeneratorEnqueuer, Sequence, OrderedEnqueuer
 from tensorflow.python.keras.utils import GeneratorEnqueuer, Sequence, OrderedEnqueuer
 
+from dataset.batch_generator import BatchSequence
+
 
 def make_image_tensor(tensor):
     """
@@ -20,10 +22,7 @@ def make_image_tensor(tensor):
     else:
         height, width = tensor.shape
         channel = 1
-    tensor += 1
-    tensor *= 255.0/2.0
-    tensor = tensor.astype(np.uint8)
-    image = Image.fromarray(tensor)
+    image = BatchSequence.np_img_to_rgb_image(tensor)
     output = io.BytesIO()
     image.save(output, format='PNG')
     image_string = output.getvalue()

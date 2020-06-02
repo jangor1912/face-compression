@@ -1,1 +1,1 @@
-tensorboard --logdir="G:\Magisterka\kaggle_dataset\small\results\samples" --port=8008 --host=localhost
+tensorboard --logdir="G:\Magisterka\youtube_dataset\samples" --port=8008 --host=localhost
