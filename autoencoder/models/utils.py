@@ -144,6 +144,7 @@ class SampleLayer(K.layers.Layer):
         self.beta = beta
         self.capacity = capacity
         self.random = randomSample
+        self.shape = None
         super(SampleLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):

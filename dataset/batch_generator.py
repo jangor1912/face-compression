@@ -45,11 +45,15 @@ class BatchSequence(Sequence):
         video_batch = list()
         mask_batch = list()
         target_batch = list()
+        detail_batch = list()
         for i in range(start_video, start_video + self.batch_size):
             i = i % len(self.videos_paths)
             video_path, mask_path = self.videos_paths[i]
             video_seq, mask_seq = self.get_input(video_path, mask_path, int(start_frame))
             index_of_image_to_generate = random.randint(0, len(video_seq) - 1)
+            index_of_detail_image = random.randint(0, Deconstructor.get_video_length(video_path) - 1)
+            detail_seq, _ = self.get_input(video_path, mask_path, int(index_of_detail_image))
+            detail_batch.append(np.array(detail_seq[0]))
             video_batch.append(np.array(video_seq))
             input_mask = np.copy(mask_seq[index_of_image_to_generate])
             mask_batch.append(input_mask)
@@ -59,7 +63,7 @@ class BatchSequence(Sequence):
             target_batch.append(
                 [np.copy(video_seq[index_of_image_to_generate]),
                  target_mask])
-        return [np.array(video_batch), np.array(mask_batch)], np.array(target_batch)
+        return [np.array(video_batch), np.array(detail_batch), np.array(mask_batch)], np.array(target_batch)
 
     def generate(self):
         while True:
