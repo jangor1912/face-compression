@@ -19,17 +19,17 @@ class Training(object):
         self.metric = metric
         self.callbacks = callbacks
         self.output_dir = output_dir
-        self.epochs= epochs
+        self.epochs = epochs
 
     def train(self):
         self.model.compile(loss=self.metric, optimizer='adam', metrics=[self.metric, "mse", "mae"])
 
         # create ordered queues
-        train_enqueuer = OrderedEnqueuer(self.training_sequence, use_multiprocessing=True, shuffle=True)
-        train_enqueuer.start(workers=4, max_queue_size=24)
+        train_enqueuer = OrderedEnqueuer(self.training_sequence, use_multiprocessing=False, shuffle=True)
+        train_enqueuer.start(workers=1, max_queue_size=64)
         train_gen = train_enqueuer.get()
-        test_enqueuer = OrderedEnqueuer(self.validation_sequence, use_multiprocessing=True, shuffle=True)
-        test_enqueuer.start(workers=4, max_queue_size=24)
+        test_enqueuer = OrderedEnqueuer(self.validation_sequence, use_multiprocessing=False, shuffle=True)
+        test_enqueuer.start(workers=1, max_queue_size=64)
         test_gen = test_enqueuer.get()
         # train model
         history = self.model.fit_generator(generator=train_gen,

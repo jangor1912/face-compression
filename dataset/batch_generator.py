@@ -22,7 +22,7 @@ class BatchSequence(Sequence):
         self.batch_size = batch_size
         self._init_directory()
 
-        self.estimated_video_length = 1.5  # seconds
+        self.estimated_video_length = 1.7  # seconds
         self.video_frame_rate = 30  # fps
         self.video_length = self.estimated_video_length * self.video_frame_rate  # in frames
         print(f"Started checking dataset in folder {self.data_dir}")
@@ -51,7 +51,7 @@ class BatchSequence(Sequence):
             video_path, mask_path = self.videos_paths[i]
             video_seq, mask_seq = self.get_input(video_path, mask_path, int(start_frame))
             index_of_image_to_generate = random.randint(0, len(video_seq) - 1)
-            index_of_detail_image = random.randint(0, Deconstructor.get_video_length(video_path) - 1)
+            index_of_detail_image = random.randint(0, Deconstructor.get_video_length(video_path) - 1 - self.frames_no)
             detail_seq, _ = self.get_input(video_path, mask_path, int(index_of_detail_image))
             detail_batch.append(np.array(detail_seq[0]))
             video_batch.append(np.array(video_seq))
