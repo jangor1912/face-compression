@@ -50,7 +50,7 @@ def populate_directories(videos_dir, train_dir, test_dir):
     all_videos = get_video_mask_tuples(videos_dir)
     random.shuffle(all_videos)
     videos_no = len(all_videos)
-    split = int(videos_no * 0.7)
+    split = int(videos_no * 0.85)
     train_files = all_videos[:split]
     test_files = all_videos[split:]
 
@@ -70,7 +70,7 @@ def populate_directories(videos_dir, train_dir, test_dir):
 
 
 if __name__ == "__main__":
-    videos_path = Path("G:/Magisterka/youtube_dataset/output/all")
-    train = Path("G:/Magisterka/youtube_dataset/output/train")
-    test = Path("G:/Magisterka/youtube_dataset/output/test")
+    videos_path = Path("E:/Magisterka/youtube_dataset/output/cleared/all")
+    train = Path("E:/Magisterka/youtube_dataset/output/cleared/train")
+    test = Path("E:/Magisterka/youtube_dataset/output/cleared/test")
     populate_directories(videos_path, train, test)

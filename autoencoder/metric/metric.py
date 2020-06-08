@@ -1,12 +1,11 @@
 import math
+from pathlib import Path
 
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from PIL import ImageDraw, Image
 
-# from face_detection.face_landmarks import FaceLandmarksPredictorFAN
+from dataset.batch_generator import BatchSequence
 
 
 class FaceMetric(object):
@@ -25,7 +24,7 @@ class FaceMetric(object):
         mask += 2.0  # This means that mask values belong to <1, 3>
         mse_tensor = tf.square(tf.subtract(original_image, produced_image))
         result = tf.reduce_mean(tf.multiply(mse_tensor, mask))
-        return result * 100.0
+        return result
 
     @classmethod
     def get_loss_from_batch(cls, y_true_batch, y_pred_batch):
@@ -89,6 +88,31 @@ class FaceMetric(object):
         return mask
 
 
+def test_metric(correct_img: Path,
+                mask_img: Path,
+                broken_face_img: Path,
+                broken_background_img: Path):
+    correct_img = Image.open(correct_img)
+    mask_img = Image.open(mask_img)
+    broken_face_img = Image.open(broken_face_img)
+    broken_background_img = Image.open(broken_background_img)
+
+    correct_img = BatchSequence.rgb_image_to_np_array(correct_img)
+    mask_img = BatchSequence.rgb_image_to_np_array(mask_img)
+    broken_face_img = BatchSequence.rgb_image_to_np_array(broken_face_img)
+    broken_background_img = BatchSequence.rgb_image_to_np_array(broken_background_img)
+
+    y_true = (correct_img, mask_img)
+    y_pred = (broken_face_img, broken_face_img)
+    broken_face_value = FaceMetric.get_loss(y_true, y_pred)
+
+    y_true = (correct_img, mask_img)
+    y_pred = (broken_background_img, broken_background_img)
+    broken_background_value = FaceMetric.get_loss(y_true, y_pred)
+
+    assert broken_face_value < broken_background_value, "Wrong value!"
+
+
 # def main():
 #     image_path = "/home/jan/PycharmProjects/face-compression/data/images/my_face_front.png"
 #     predictor = FaceLandmarksPredictorFAN(_type='2d')
@@ -101,7 +125,14 @@ class FaceMetric(object):
 #     ax = fig.add_subplot()
 #     ax.imshow(np.array(mask))
 #     plt.show()
-#
-#
-# if __name__ == "__main__":
-#     main()
+
+
+if __name__ == "__main__":
+    correct_image = Path("C:/PyCharm Projects/face-compression/data/images/original_img.png")
+    mask_image = Path("C:/PyCharm Projects/face-compression/data/images/mask_img.png")
+    broken_face_image = Path("C:/PyCharm Projects/face-compression/data/images/broken_face.png")
+    broken_background_image = Path("C:/PyCharm Projects/face-compression/data/images/broken_background.png")
+    test_metric(correct_image,
+                mask_image,
+                broken_face_image,
+                broken_background_image)

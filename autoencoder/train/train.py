@@ -141,7 +141,7 @@ def train_small(train_directory, test_directory, samples_directory, epochs=100):
 
 def train_big(train_directory, test_directory, samples_directory, epochs=100):
     batch_size = 8
-    frames_no = 8
+    frames_no = 16
     input_shape = (128, 128, 3)
 
     train_seq = BatchSequence(train_directory, input_size=input_shape[:-1],
