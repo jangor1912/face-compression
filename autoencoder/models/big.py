@@ -53,12 +53,12 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
                                      use_bias=True, data_format='channels_last',
                                      padding='same'))(input_layer)
-        net = TimeDistributed(BatchNormalization())(net)
+        net = BatchNormalization()(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
                                      use_bias=True, data_format='channels_last',
                                      padding='same'))(net)
-        net = TimeDistributed(BatchNormalization())(net)
+        net = BatchNormalization()(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
@@ -67,12 +67,12 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
                                      use_bias=True, data_format='channels_last',
                                      padding='same'))(net)
-        net = TimeDistributed(BatchNormalization())(net)
+        net = BatchNormalization()(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
                                      use_bias=True, data_format='channels_last',
                                      padding='same'))(net)
-        net = TimeDistributed(BatchNormalization())(net)
+        net = BatchNormalization()(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)

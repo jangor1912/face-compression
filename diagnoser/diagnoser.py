@@ -70,13 +70,13 @@ class ModelDiagonoser(Callback):
         is_sequence = isinstance(self.data_generator, Sequence)
         if is_sequence:
             self.enqueuer = OrderedEnqueuer(self.data_generator,
-                                            use_multiprocessing=True,
+                                            use_multiprocessing=False,
                                             shuffle=False)
         else:
             self.enqueuer = GeneratorEnqueuer(self.data_generator,
-                                              use_multiprocessing=True,
+                                              use_multiprocessing=False,
                                               wait_time=0.01)
-        self.enqueuer.start(workers=4, max_queue_size=4)
+        self.enqueuer.start(workers=1, max_queue_size=32)
 
     def on_epoch_end(self, epoch, logs=None):
         output_generator = self.enqueuer.get()

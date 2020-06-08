@@ -140,6 +140,8 @@ def train_small(train_directory, test_directory, samples_directory, epochs=100):
 
 
 def train_big(train_directory, test_directory, samples_directory, epochs=100):
+    alpha = 10.0
+    beta = 10.0
     batch_size = 8
     frames_no = 16
     input_shape = (128, 128, 3)
@@ -153,7 +155,9 @@ def train_big(train_directory, test_directory, samples_directory, epochs=100):
     callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
 
     metric = FaceMetric.get_loss_from_batch
-    auto_encoder = VariationalAutoEncoder128()
+    auto_encoder = VariationalAutoEncoder128(batch_size=batch_size,
+                                             alpha=alpha,
+                                             beta=beta)
     auto_encoder.summary()
     t = Training(model=auto_encoder.model,
                  training_sequence=train_seq,
