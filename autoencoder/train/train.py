@@ -39,9 +39,9 @@ class Training(object):
                                            steps_per_epoch=len(self.training_sequence),
                                            validation_steps=len(self.validation_sequence),
                                            callbacks=self.callbacks)
-        # self.model.save(str(Path(self.output_dir, 'model.h5')))
         # plot metrics
         self.plot_results(history, self.output_dir)
+        self.model.save_weights(str(Path(self.output_dir, 'model.h5')))
 
     @staticmethod
     def plot_results(history, output_path):
