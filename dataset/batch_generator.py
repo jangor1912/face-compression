@@ -30,8 +30,8 @@ class BatchSequence(Sequence):
         print(f"Finished checking dataset in folder {self.data_dir}")
 
     def __len__(self):
-        sequences_per_video = int(self.estimated_video_length * self.video_frame_rate / self.frames_no)
-        result = int(np.floor(len(self.videos_paths) * sequences_per_video / self.batch_size))
+        sequences_per_video = int(self.estimated_video_length * self.video_frame_rate / float(self.frames_no))
+        result = int(np.floor(len(self.videos_paths) * sequences_per_video / float(self.batch_size)))
         return result
 
     def __getitem__(self, index):

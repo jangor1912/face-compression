@@ -24,7 +24,8 @@ class FaceMetric(object):
         mask += 2.0  # This means that mask values belong to <1, 3>
         mse_tensor = tf.square(tf.subtract(original_image, produced_image))
         result = tf.reduce_mean(tf.multiply(mse_tensor, mask))
-        return result
+        metric_multiplier = 10.0
+        return result * metric_multiplier
 
     @classmethod
     def get_loss_from_batch(cls, y_true_batch, y_pred_batch):
@@ -102,15 +103,23 @@ def test_metric(correct_img: Path,
     broken_face_img = BatchSequence.rgb_image_to_np_array(broken_face_img)
     broken_background_img = BatchSequence.rgb_image_to_np_array(broken_background_img)
 
-    y_true = (correct_img, mask_img)
-    y_pred = (broken_face_img, broken_face_img)
-    broken_face_value = FaceMetric.get_loss(y_true, y_pred)
+    sess = tf.compat.v1.Session()
+    with sess.as_default():
+        y_true = np.array([correct_img, mask_img])
+        y_pred = np.array([broken_face_img, broken_face_img])
+        broken_face_value = FaceMetric.get_loss(y_true, y_pred)
 
-    y_true = (correct_img, mask_img)
-    y_pred = (broken_background_img, broken_background_img)
-    broken_background_value = FaceMetric.get_loss(y_true, y_pred)
+        print("Broken face value = ")
+        print(broken_face_value.eval())
 
-    assert broken_face_value < broken_background_value, "Wrong value!"
+    sess = tf.compat.v1.Session()
+    with sess.as_default():
+        y_true = np.array([correct_img, mask_img])
+        y_pred = np.array([broken_background_img, broken_background_img])
+        broken_background_value = FaceMetric.get_loss(y_true, y_pred)
+
+        print("Broken background value = ")
+        print(broken_background_value.eval())
 
 
 # def main():

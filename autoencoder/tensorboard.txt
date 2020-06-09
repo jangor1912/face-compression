@@ -1,1 +1,1 @@
-tensorboard --logdir="G:\Magisterka\youtube_dataset\samples" --port=8008 --host=localhost
+tensorboard --logdir="E:\Magisterka\youtube_dataset\output\cleared\samples" --port=8008 --host=localhost
