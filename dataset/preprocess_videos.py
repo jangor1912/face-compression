@@ -15,11 +15,12 @@ def process_videos(videos_dir, output_dir,
     for file in files:
         try:
             print(f"Started processing video {file}")
-            face_tracker.video_to_clips(input_path=Path(videos_dir, file),
-                                        output_path=Path(output_dir, file))
+            face_tracker.video_to_clips(input_path=str(Path(videos_dir, file)),
+                                        output_path=os.path.splitext(Path(output_dir, file))[0])
             print(f"Successfully processed video {file}")
         except Exception as e:
             print(f"Error during processing {file}, error is {str(e)}")
+            raise e
 
 
 if __name__ == "__main__":
