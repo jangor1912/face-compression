@@ -5,7 +5,7 @@ import numpy as np
 from tensorflow.python.keras.utils import OrderedEnqueuer
 
 from autoencoder.metric.metric import FaceMetric
-from autoencoder.models.big import LSTMEncoder128, LSTMDecoder128, VariationalAutoEncoder128
+from autoencoder.models.big import VariationalAutoEncoder128
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
 from dataset.batch_generator import BatchSequence
 from diagnoser.diagnoser import ModelDiagonoser

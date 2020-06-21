@@ -38,11 +38,14 @@ class ClipNotFormedError(Exception):
 
 
 class FaceTracker(object):
-    def __init__(self, frame_rate=30, output_size=512, clip_number=2, clip_length=4):
+    def __init__(self, frame_rate=30, output_size=512,
+                 clip_number=2, clip_length=4,
+                 strict=True):
         self.frame_rate = frame_rate
         self.output_size = output_size
         self.clip_number = clip_number
         self.clip_length = clip_length
+        self.strict = strict
 
     def video_to_clips(self, input_path, output_path):
         video_length = Deconstructor.get_video_length(input_path)
@@ -182,7 +185,7 @@ class FaceTracker(object):
                 mask = ImageHelpers.crop_image(mask, current_location)
                 mask = cv2.resize(mask, (self.output_size, self.output_size), interpolation=cv2.INTER_AREA)
 
-                if prediction is None:
+                if prediction is None and self.strict:
                     yield None
                 else:
                     yield image, mask
