@@ -116,7 +116,11 @@ class SampleLayer(K.layers.Layer):
             sample = SampleLayer('bvae', 16)([mean, stddev])
     """
 
-    def __init__(self, latent_regularizer='bvae', beta=100., capacity=0., randomSample=True, **kwargs):
+    def __init__(self, latent_regularizer='bvae',
+                 beta=100., capacity=0.,
+                 randomSample=True,
+                 epsilon_sequence=False,
+                 **kwargs):
         """
         args:
         ------
@@ -145,6 +149,7 @@ class SampleLayer(K.layers.Layer):
         self.capacity = capacity
         self.random = randomSample
         self.shape = None
+        self.epsilon_sequence = epsilon_sequence
         super(SampleLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -183,6 +188,9 @@ class SampleLayer(K.layers.Layer):
         #                                                   mean=0., stddev=1.)
         if self.random:
             # 'reparameterization trick':
+            if self.epsilon_sequence:
+                mean = K.repeat(mean, epsilon.shape[1])
+                stddev = K.repeat(stddev, epsilon.shape[1])
             return mean + K.backend.exp(stddev) * epsilon
         else:  # do not perform random sampling, simply grab the impulse value
             return mean + 0 * stddev  # Keras needs the *0 so the gradinent is not None
