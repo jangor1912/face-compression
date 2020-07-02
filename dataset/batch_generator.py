@@ -22,7 +22,7 @@ class BatchSequence(Sequence):
         self.batch_size = batch_size
         self._init_directory()
 
-        self.estimated_video_length = 1.7  # seconds
+        self.estimated_video_length = 1.9  # seconds
         self.video_frame_rate = 30  # fps
         self.video_length = self.estimated_video_length * self.video_frame_rate  # in frames
         print(f"Started checking dataset in folder {self.data_dir}")
@@ -92,14 +92,15 @@ class BatchSequence(Sequence):
                 raise RuntimeError(f"Video {mask_path} is shorter than estimated video length")
             print(f"Checked {i}/{len(self.videos_paths)}")
 
-    def get_input(self, video_path, mask_path, start_frame):
+    def get_input(self, video_path, mask_path, start_frame, frames_no=None):
+        frames_no = frames_no or self.frames_no
         video_sequence = list()
         mask_sequence = list()
         try:
             frame_generator = Deconstructor.video_to_images(video_path, start_frame=start_frame)
             mask_generator = Deconstructor.video_to_images(mask_path, start_frame=start_frame)
             for (frame, frame_no), (mask, mask_no) in zip(frame_generator, mask_generator):
-                if frame_no >= start_frame + self.frames_no:
+                if frame_no >= start_frame + frames_no:
                     break
                 frame = cv2.resize(frame, self.input_size, interpolation=cv2.INTER_AREA)
                 mask = cv2.resize(mask, self.input_size, interpolation=cv2.INTER_AREA)
@@ -143,6 +144,53 @@ class BatchSequence(Sequence):
         rgb_img *= 2.0/255.0
         rgb_img -= 1.0
         return rgb_img
+
+
+class LSTMSequence(BatchSequence):
+    def __init__(self, data_dir, input_size=(128, 128), batch_size=8,
+                 frames_no=3, encoder_frames_no=30):
+        super().__init__(data_dir, input_size, batch_size, frames_no)
+        self.encoder_frames_no = encoder_frames_no
+        self.video_length_in_frames = self.video_length * self.video_frame_rate
+        self.last_possible_encoder_frame = self.video_length_in_frames - self.encoder_frames_no - 1
+        assert self.last_possible_encoder_frame > 0, f"Cannot properly encode {self.encoder_frames_no} frames " \
+                                                     f"using videos only {self.video_length} (s) long!"
+
+    def __getitem__(self, index):
+        start_video = index * self.batch_size
+        start_frame = np.floor(start_video / len(self.videos_paths)) * self.frames_no
+        start_video = start_video % len(self.videos_paths)
+        if start_frame > self.video_length:
+            raise RuntimeError("Trying to get frames out of video scope! "
+                               "Video Length is {} frames, trying to access {} frame."
+                               .format(self.video_length, start_frame))
+        encoder_batch = list()
+        mask_batch = list()
+        target_batch = list()
+        detail_batch = list()
+        for i in range(start_video, start_video + self.batch_size):
+            i = i % len(self.videos_paths)
+            video_path, mask_path = self.videos_paths[i]
+            encoder_start = random.randint(0, self.last_possible_encoder_frame)
+            encoder_seq, _ = self.get_input(video_path, mask_path, int(encoder_start),
+                                            frames_no=self.encoder_frames_no)
+            encoder_batch.append(np.array(encoder_seq))
+
+            video_seq, mask_seq = self.get_input(video_path, mask_path, int(start_frame))
+            index_of_image_to_generate = random.randint(self.frames_no, len(video_seq) - 1)
+            index_of_detail_image = random.randint(0, Deconstructor.get_video_length(video_path) - 1)
+            detail_seq, _ = self.get_input(video_path, mask_path, int(index_of_detail_image), frames_no=2)
+            detail_batch.append(np.array(detail_seq[0]))
+            input_mask_seq = np.array(mask_seq[index_of_image_to_generate - self.frames_no + 1
+                                               :index_of_image_to_generate + 1])
+            mask_batch.append(input_mask_seq)
+            target_mask = np.copy(input_mask_seq[-1])
+            target_mask = self.np_mask_to_rgb_image(target_mask)
+            target_mask = self.rgb_image_to_np_array(target_mask)
+            target_batch.append(
+                [np.copy(video_seq[index_of_image_to_generate]),
+                 target_mask])
+        return [np.array(encoder_batch), np.array(detail_batch), np.array(mask_batch)], np.array(target_batch)
 
 
 def test(input_dir, output_dir):

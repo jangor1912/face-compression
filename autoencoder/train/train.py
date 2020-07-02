@@ -6,8 +6,9 @@ from tensorflow.python.keras.utils import OrderedEnqueuer
 
 from autoencoder.metric.metric import FaceMetric
 from autoencoder.models.big import VariationalAutoEncoder128
+from autoencoder.models.big_lstm import VariationalLSTMAutoEncoder128
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
-from dataset.batch_generator import BatchSequence
+from dataset.batch_generator import BatchSequence, LSTMSequence
 from diagnoser.diagnoser import ModelDiagonoser
 
 
@@ -161,6 +162,43 @@ def train_big(train_directory, test_directory, samples_directory,
         auto_encoder = VariationalAutoEncoder128(batch_size=batch_size,
                                                  alpha=alpha,
                                                  beta=beta)
+        auto_encoder.summary()
+        model = auto_encoder.model
+    t = Training(model=model,
+                 training_sequence=train_seq,
+                 validation_sequence=test_seq,
+                 metric=metric,
+                 callbacks=callbacks,
+                 output_dir=samples_directory,
+                 epochs=epochs)
+    t.train()
+
+
+def train_lstm(train_directory, test_directory, samples_directory,
+               epochs=100,
+               model=None):
+    alpha = 1.0
+    beta = 1.0
+    batch_size = 8
+    frames_no = 3
+    encoder_frames = 30
+    input_shape = (128, 128, 3)
+
+    train_seq = LSTMSequence(train_directory, input_size=input_shape[:-1],
+                             batch_size=batch_size, frames_no=frames_no,
+                             encoder_frames_no=encoder_frames)
+    test_seq = LSTMSequence(test_directory, input_size=input_shape[:-1],
+                            batch_size=batch_size, frames_no=frames_no,
+                            encoder_frames_no=encoder_frames)
+
+    num_samples = 3  # samples to be generated each epoch
+    callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
+
+    metric = FaceMetric.get_loss_from_batch
+    if not model:
+        auto_encoder = VariationalLSTMAutoEncoder128(batch_size=batch_size,
+                                                     alpha=alpha,
+                                                     beta=beta)
         auto_encoder.summary()
         model = auto_encoder.model
     t = Training(model=model,
