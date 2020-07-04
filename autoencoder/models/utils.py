@@ -119,7 +119,6 @@ class SampleLayer(K.layers.Layer):
     def __init__(self, latent_regularizer='bvae',
                  beta=100., capacity=0.,
                  randomSample=True,
-                 epsilon_sequence=False,
                  **kwargs):
         """
         args:
@@ -149,7 +148,6 @@ class SampleLayer(K.layers.Layer):
         self.capacity = capacity
         self.random = randomSample
         self.shape = None
-        self.epsilon_sequence = epsilon_sequence
         super(SampleLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -188,9 +186,6 @@ class SampleLayer(K.layers.Layer):
         #                                                   mean=0., stddev=1.)
         if self.random:
             # 'reparameterization trick':
-            if self.epsilon_sequence:
-                mean = K.repeat(mean, epsilon.shape[1])
-                stddev = K.repeat(stddev, epsilon.shape[1])
             return mean + K.backend.exp(stddev) * epsilon
         else:  # do not perform random sampling, simply grab the impulse value
             return mean + 0 * stddev  # Keras needs the *0 so the gradinent is not None
@@ -266,3 +261,17 @@ class DummyMaskLayer(K.layers.Layer):
     def compute_output_shape(self, input_shape):
         return [input_shape[0], 2, input_shape[1],
                 input_shape[2], input_shape[3]]
+
+
+class RepeatVector3D(K.layers.Layer):
+
+    def __init__(self, n, **kwargs):
+        self.n = n
+        super(RepeatVector3D, self).__init__(**kwargs)
+
+    def get_output_shape_for(self, input_shape):
+        return (self.n, ) + input_shape
+
+    def call(self, x, mask=None):
+        x = K.backend.repeat(x, n=self.n)
+        return x

@@ -2,10 +2,10 @@ from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.backend import concatenate
 from tensorflow.python.keras.layers import Conv2D, Reshape, MaxPool2D, Dense, BatchNormalization, \
     LeakyReLU, Flatten, \
-    ConvLSTM2D, TimeDistributed, MaxPooling2D, Dropout, Conv2DTranspose, RepeatVector
+    ConvLSTM2D, TimeDistributed, MaxPooling2D, Dropout, Conv2DTranspose
 
 from autoencoder.models.utils import SampleLayer, DummyMaskLayer, \
-    EpsilonLayer
+    EpsilonLayer, RepeatVector3D
 
 
 class Architecture(object):
@@ -325,7 +325,7 @@ class LSTMDecoder128(Architecture):
                               use_bias=True, data_format='channels_last', padding='same')(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask8x8x256 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = MaxPooling2D(pool_size=2)(mask8x8x256)
+        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask8x8x256)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x4x4x256
@@ -357,7 +357,7 @@ class LSTMDecoder128(Architecture):
         epsilon = TimeDistributed(EpsilonLayer(alpha=self.alpha, name="epsilon"))(mask_net)
 
         samples = SampleLayer(beta=self.beta, capacity=self.latent_size,
-                              name="sampling_layer", epsilon_sequence=True)([mean_input, stddev_input, epsilon])
+                              name="sampling_layer")([mean_input, stddev_input, epsilon])
 
         ###################
         # Decoder network #
@@ -370,7 +370,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x1x1x1024
         net = TimeDistributed(Conv2DTranspose(1024, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x2x2x1024
-        detail_frames2x2x1024 = RepeatVector(net.shape[0])(detail2x2x1024)
+        detail_frames2x2x1024 = RepeatVector3D(net.shape[0])(detail2x2x1024)
         net = concatenate([net, detail_frames2x2x1024])
         net = TimeDistributed(Dropout(self.dropout))(net)
         # {frames}x2x2x2048
@@ -389,7 +389,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x2x2x1024
         net = TimeDistributed(Conv2DTranspose(512, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x4x4x512
-        detail_frames4x4x512 = RepeatVector(net.shape[0])(detail4x4x512)
+        detail_frames4x4x512 = RepeatVector3D(net.shape[0])(detail4x4x512)
         net = concatenate([net, detail_frames4x4x512])
         # {frames}x4x4x1024
         net = TimeDistributed(Dropout(self.dropout))(net)
@@ -409,7 +409,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x4x4x512
         net = TimeDistributed(Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x8x8x256
-        detail_frames8x8x256 = RepeatVector(net.shape[0])(detail8x8x256)
+        detail_frames8x8x256 = RepeatVector3D(net.shape[0])(detail8x8x256)
         net = concatenate([net, detail_frames8x8x256])
         # {frames}x8x8x512
         net = TimeDistributed(Dropout(self.dropout))(net)
@@ -428,7 +428,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x8x8x256
         net = TimeDistributed(Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x16x16x128
-        detail_frames16x16x128 = RepeatVector(net.shape[0])(detail16x16x128)
+        detail_frames16x16x128 = RepeatVector3D(net.shape[0])(detail16x16x128)
         net = concatenate([net, detail_frames16x16x128])
         # {frames}x16x16x256
         net = TimeDistributed(Dropout(self.dropout))(net)
@@ -448,7 +448,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x16x16x128
         net = TimeDistributed(Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x32x32x64
-        detail_frames32x32x64 = RepeatVector(net.shape[0])(detail32x32x64)
+        detail_frames32x32x64 = RepeatVector3D(net.shape[0])(detail32x32x64)
         net = concatenate([net, detail_frames32x32x64])
         # {frames}x32x32x128
         net = TimeDistributed(Dropout(self.dropout))(net)
@@ -468,7 +468,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x32x32x64
         net = TimeDistributed(Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x64x64x32
-        detail_frames64x64x32 = RepeatVector(net.shape[0])(detail64x64x32)
+        detail_frames64x64x32 = RepeatVector3D(net.shape[0])(detail64x64x32)
         net = concatenate([net, detail_frames64x64x32])
         # {frames}x64x64x64
         net = TimeDistributed(Dropout(self.dropout))(net)
@@ -488,7 +488,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x64x64x32
         net = TimeDistributed(Conv2DTranspose(16, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x128x128x16
-        detail_frames128x128x16 = RepeatVector(net.shape[0])(detail128x128x16)
+        detail_frames128x128x16 = RepeatVector3D(net.shape[0])(detail128x128x16)
         net = concatenate([net, detail_frames128x128x16])
         # {frames}x128x128x32
         net = TimeDistributed(Dropout(self.dropout))(net)
@@ -545,7 +545,7 @@ class VariationalLSTMAutoEncoder128(object):
 def test_summary():
     sequence_encoder = LSTMEncoder128()
     sequence_encoder.model.summary()
-    auto_encoder = VariationalAutoEncoder128()
+    auto_encoder = VariationalLSTMAutoEncoder128()
     auto_encoder.summary()
 
 
