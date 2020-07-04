@@ -261,17 +261,3 @@ class DummyMaskLayer(K.layers.Layer):
     def compute_output_shape(self, input_shape):
         return [input_shape[0], 2, input_shape[1],
                 input_shape[2], input_shape[3]]
-
-
-class RepeatVector3D(K.layers.Layer):
-
-    def __init__(self, n, **kwargs):
-        self.n = n
-        super(RepeatVector3D, self).__init__(**kwargs)
-
-    def get_output_shape_for(self, input_shape):
-        return (self.n, ) + input_shape
-
-    def call(self, x, mask=None):
-        x = K.backend.repeat(x, n=self.n)
-        return x

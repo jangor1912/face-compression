@@ -2,10 +2,10 @@ from tensorflow.python.keras import Model, Input
 from tensorflow.python.keras.backend import concatenate
 from tensorflow.python.keras.layers import Conv2D, Reshape, MaxPool2D, Dense, BatchNormalization, \
     LeakyReLU, Flatten, \
-    ConvLSTM2D, TimeDistributed, MaxPooling2D, Dropout, Conv2DTranspose
+    ConvLSTM2D, TimeDistributed, MaxPooling2D, Dropout, Conv2DTranspose, Lambda
 
 from autoencoder.models.utils import SampleLayer, DummyMaskLayer, \
-    EpsilonLayer, RepeatVector3D
+    EpsilonLayer
 
 
 class Architecture(object):
@@ -49,9 +49,9 @@ class LSTMEncoder128(Architecture):
         input_layer = Input(self.real_input_shape, self.batch_size)
 
         # {frames}x128x128x3
-        net = ConvLSTM2D(filters=16, kernel_size=3,
-                         use_bias=True, data_format='channels_last',
-                         padding='same', return_sequences=True)(input_layer)
+        net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
+                                     use_bias=True, data_format='channels_last',
+                                     padding='same'))(input_layer)
         net = BatchNormalization(axis=-1)(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = ConvLSTM2D(filters=16, kernel_size=3,
@@ -63,9 +63,9 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
 
         # {frames}x64x64x16
-        net = ConvLSTM2D(filters=32, kernel_size=3,
-                         use_bias=True, data_format='channels_last',
-                         padding='same', return_sequences=True)(net)
+        net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
+                                     use_bias=True, data_format='channels_last',
+                                     padding='same'))(net)
         net = BatchNormalization(axis=-1)(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = ConvLSTM2D(filters=32, kernel_size=3,
@@ -77,8 +77,8 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
 
         # {frames}x32x32x32
-        net = ConvLSTM2D(filters=64, kernel_size=(3, 3), data_format='channels_last',
-                         padding='same', return_sequences=True)(net)
+        net = TimeDistributed(Conv2D(filters=64, kernel_size=(3, 3),
+                                     data_format='channels_last', padding='same'))(net)
         net = BatchNormalization(axis=-1)(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = ConvLSTM2D(filters=64, kernel_size=(3, 3), data_format='channels_last',
@@ -89,8 +89,8 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
 
         # {frames}x16x16x64
-        net = ConvLSTM2D(filters=128, kernel_size=(3, 3), data_format='channels_last',
-                         padding='same', return_sequences=True)(net)
+        net = TimeDistributed(Conv2D(filters=128, kernel_size=(3, 3),
+                                     data_format='channels_last', padding='same'))(net)
         net = BatchNormalization(axis=-1)(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = ConvLSTM2D(filters=128, kernel_size=(3, 3), data_format='channels_last',
@@ -101,8 +101,8 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
 
         # {frames}x8x8x128
-        net = ConvLSTM2D(filters=256, kernel_size=(3, 3), data_format='channels_last',
-                         padding='same', return_sequences=True)(net)
+        net = TimeDistributed(Conv2D(filters=256, kernel_size=(3, 3),
+                                     data_format='channels_last', padding='same'))(net)
         net = BatchNormalization(axis=-1)(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = ConvLSTM2D(filters=256, kernel_size=(3, 3), data_format='channels_last',
@@ -113,8 +113,8 @@ class LSTMEncoder128(Architecture):
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
 
         # {frames}x4x4x256
-        net = ConvLSTM2D(filters=512, kernel_size=(3, 3), data_format='channels_last',
-                         padding='same', return_sequences=True)(net)
+        net = TimeDistributed(Conv2D(filters=512, kernel_size=(3, 3),
+                                     data_format='channels_last', padding='same'))(net)
         net = BatchNormalization(axis=-1)(net)
         net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
         net = ConvLSTM2D(filters=512, kernel_size=(3, 3), data_format='channels_last',
@@ -265,88 +265,88 @@ class LSTMDecoder128(Architecture):
         ########################
 
         # {frames}x128x128x3
-        mask_net = ConvLSTM2D(filters=16, kernel_size=3,
-                              use_bias=True, data_format='channels_last',
-                              padding='same', return_sequences=True)(mask_input)
+        mask_net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
+                                          use_bias=True, data_format='channels_last',
+                                          padding='same'))(mask_input)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=16, kernel_size=3,
-                              use_bias=True, data_format='channels_last',
-                              padding='same', return_sequences=True)(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
+                                          use_bias=True, data_format='channels_last',
+                                          padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask128x128x16 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask128x128x16)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x64x64x16
-        mask_net = ConvLSTM2D(filters=32, kernel_size=3,
-                              use_bias=True, data_format='channels_last',
-                              padding='same', return_sequences=True)(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
+                                          use_bias=True, data_format='channels_last',
+                                          padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=32, kernel_size=3,
-                              use_bias=True, data_format='channels_last',
-                              padding='same', return_sequences=True)(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
+                                          use_bias=True, data_format='channels_last',
+                                          padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask64x64x32 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask64x64x32)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x32x32x32
-        mask_net = ConvLSTM2D(filters=64, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=64, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=64, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=64, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask32x32x64 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask32x32x64)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x16x16x64
-        mask_net = ConvLSTM2D(filters=128, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=128, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=128, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=128, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask16x16x128 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask16x16x128)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x8x8x128
-        mask_net = ConvLSTM2D(filters=256, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=256, kernel_size=3, use_bias=True,
+                              data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=256, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=256, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask8x8x256 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask8x8x256)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x4x4x256
-        mask_net = ConvLSTM2D(filters=512, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=512, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=512, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=512, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask4x4x512 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask4x4x512)
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
 
         # {frames}x2x2x512
-        mask_net = ConvLSTM2D(filters=1024, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=1024, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
-        mask_net = ConvLSTM2D(filters=1024, kernel_size=3, return_sequences=True,
-                              use_bias=True, data_format='channels_last', padding='same')(mask_net)
+        mask_net = TimeDistributed(Conv2D(filters=1024, kernel_size=3, use_bias=True,
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask2x2x1024 = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask2x2x1024)
@@ -370,8 +370,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x1x1x1024
         net = TimeDistributed(Conv2DTranspose(1024, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x2x2x1024
-        detail_frames2x2x1024 = RepeatVector3D(net.shape[0])(detail2x2x1024)
-        net = concatenate([net, detail_frames2x2x1024])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail2x2x1024])))(net)
         net = TimeDistributed(Dropout(self.dropout))(net)
         # {frames}x2x2x2048
         net = ConvLSTM2D(filters=1024, kernel_size=3, return_sequences=True,
@@ -389,8 +388,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x2x2x1024
         net = TimeDistributed(Conv2DTranspose(512, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x4x4x512
-        detail_frames4x4x512 = RepeatVector3D(net.shape[0])(detail4x4x512)
-        net = concatenate([net, detail_frames4x4x512])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail4x4x512])))(net)
         # {frames}x4x4x1024
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=512, kernel_size=3, return_sequences=True,
@@ -409,8 +407,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x4x4x512
         net = TimeDistributed(Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x8x8x256
-        detail_frames8x8x256 = RepeatVector3D(net.shape[0])(detail8x8x256)
-        net = concatenate([net, detail_frames8x8x256])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail8x8x256])))(net)
         # {frames}x8x8x512
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=256, kernel_size=3, return_sequences=True,
@@ -428,8 +425,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x8x8x256
         net = TimeDistributed(Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x16x16x128
-        detail_frames16x16x128 = RepeatVector3D(net.shape[0])(detail16x16x128)
-        net = concatenate([net, detail_frames16x16x128])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail16x16x128])))(net)
         # {frames}x16x16x256
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=128, kernel_size=3, return_sequences=True,
@@ -448,8 +444,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x16x16x128
         net = TimeDistributed(Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x32x32x64
-        detail_frames32x32x64 = RepeatVector3D(net.shape[0])(detail32x32x64)
-        net = concatenate([net, detail_frames32x32x64])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail32x32x64])))(net)
         # {frames}x32x32x128
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=64, kernel_size=3, return_sequences=True,
@@ -468,8 +463,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x32x32x64
         net = TimeDistributed(Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x64x64x32
-        detail_frames64x64x32 = RepeatVector3D(net.shape[0])(detail64x64x32)
-        net = concatenate([net, detail_frames64x64x32])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail64x64x32])))(net)
         # {frames}x64x64x64
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=32, kernel_size=3, return_sequences=True,
@@ -488,8 +482,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x64x64x32
         net = TimeDistributed(Conv2DTranspose(16, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x128x128x16
-        detail_frames128x128x16 = RepeatVector3D(net.shape[0])(detail128x128x16)
-        net = concatenate([net, detail_frames128x128x16])
+        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail128x128x16])))(net)
         # {frames}x128x128x32
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=16, kernel_size=3, return_sequences=True,
@@ -538,7 +531,11 @@ class VariationalLSTMAutoEncoder128(object):
         return Model(inputs=[sequence_input, detail_input, mask_input], outputs=net)
 
     def summary(self):
-        print("Model summary")
+        print("Encoder summary:")
+        self.encoder_model.summary()
+        print("Decoder summary:")
+        self.decoder_model.summary()
+        print("Model summary:")
         self.model.summary()
 
 
