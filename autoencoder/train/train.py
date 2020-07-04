@@ -176,20 +176,20 @@ def train_big(train_directory, test_directory, samples_directory,
 
 def train_lstm(train_directory, test_directory, samples_directory,
                epochs=100,
-               model=None):
-    alpha = 1.0
-    beta = 1.0
-    batch_size = 8
-    frames_no = 3
-    encoder_frames = 30
+               model=None,
+               alpha=5.0,
+               beta=5.0,
+               batch_size=4):
+    decoder_frames_no = 3
+    encoder_frames_no = 30
     input_shape = (128, 128, 3)
 
     train_seq = LSTMSequence(train_directory, input_size=input_shape[:-1],
-                             batch_size=batch_size, frames_no=frames_no,
-                             encoder_frames_no=encoder_frames)
+                             batch_size=batch_size, frames_no=decoder_frames_no,
+                             encoder_frames_no=encoder_frames_no)
     test_seq = LSTMSequence(test_directory, input_size=input_shape[:-1],
-                            batch_size=batch_size, frames_no=frames_no,
-                            encoder_frames_no=encoder_frames)
+                            batch_size=batch_size, frames_no=decoder_frames_no,
+                            encoder_frames_no=encoder_frames_no)
 
     num_samples = 3  # samples to be generated each epoch
     callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
@@ -197,6 +197,8 @@ def train_lstm(train_directory, test_directory, samples_directory,
     metric = FaceMetric.get_loss_from_batch
     if not model:
         auto_encoder = VariationalLSTMAutoEncoder128(batch_size=batch_size,
+                                                     encoder_frames_no=encoder_frames_no,
+                                                     decoder_frames_no=decoder_frames_no,
                                                      alpha=alpha,
                                                      beta=beta)
         auto_encoder.summary()

@@ -40,9 +40,10 @@ class Architecture(object):
 
 
 class LSTMEncoder128(Architecture):
-    def __init__(self, batch_size=4):
+    def __init__(self, batch_size=4, frames_no=30):
         super().__init__(input_shape=(128, 128, 3),
                          batch_size=batch_size,
+                         frames_no=frames_no,
                          latent_size=1024)
 
     def layers(self):
@@ -155,14 +156,16 @@ class LSTMEncoder128(Architecture):
 
 class LSTMDecoder128(Architecture):
     def __init__(self,
+                 frames_no=3,
                  alpha=10.0,
                  beta=10.0,
                  batch_size=4):
         self.alpha = alpha
         self.beta = beta
-        self.mask_input_shape = (None, 128, 128, 1)
+        self.mask_input_shape = (frames_no, 128, 128, 1)
         super().__init__(input_shape=(128, 128, 3),
                          batch_size=batch_size,
+                         frames_no=frames_no,
                          latent_size=1024)
 
     def layers(self):
@@ -318,7 +321,7 @@ class LSTMDecoder128(Architecture):
 
         # {frames}x8x8x128
         mask_net = TimeDistributed(Conv2D(filters=256, kernel_size=3, use_bias=True,
-                              data_format='channels_last', padding='same'))(mask_net)
+                                          data_format='channels_last', padding='same'))(mask_net)
         mask_net = BatchNormalization()(mask_net)
         mask_net = TimeDistributed(LeakyReLU(alpha=self.leak))(mask_net)
         mask_net = TimeDistributed(Conv2D(filters=256, kernel_size=3, use_bias=True,
@@ -356,7 +359,7 @@ class LSTMDecoder128(Architecture):
         mask_net = TimeDistributed(Dense(self.latent_size, name="epsilon_input"))(mask_net)
         epsilon = TimeDistributed(EpsilonLayer(alpha=self.alpha, name="epsilon"))(mask_net)
 
-        samples = SampleLayer(beta=self.beta, capacity=self.latent_size,
+        samples = SampleLayer(beta=self.beta, capacity=self.latent_size, epsilon_sequence=True,
                               name="sampling_layer")([mean_input, stddev_input, epsilon])
 
         ###################
@@ -509,21 +512,26 @@ class LSTMDecoder128(Architecture):
 
 
 class VariationalLSTMAutoEncoder128(object):
-    def __init__(self, batch_size=4, alpha=10.0, beta=10.0):
+    def __init__(self, batch_size=4, alpha=10.0, beta=10.0,
+                 encoder_frames_no=30, decoder_frames_no=3):
         self.latent_size = 1024
         self.batch_size = batch_size
-        self.encoder = LSTMEncoder128(batch_size=batch_size)
+        self.encoder_frames_no = encoder_frames_no
+        self.decoder_frames_no = decoder_frames_no
+        self.encoder = LSTMEncoder128(batch_size=batch_size,
+                                      frames_no=encoder_frames_no)
         self.encoder_model = self.encoder.Build()
         self.decoder = LSTMDecoder128(batch_size=batch_size,
+                                      frames_no=decoder_frames_no,
                                       alpha=alpha,
                                       beta=beta)
         self.decoder_model = self.decoder.Build()
         self.model = self.Build()
 
     def Build(self):
-        sequence_input = Input((None, 128, 128, 3), self.batch_size)
+        sequence_input = Input((self.encoder_frames_no, 128, 128, 3), self.batch_size)
         detail_input = Input((128, 128, 3), self.batch_size)
-        mask_input = Input((None, 128, 128, 1), self.batch_size)
+        mask_input = Input((self.decoder_frames_no, 128, 128, 1), self.batch_size)
         encoder_output = self.encoder_model(sequence_input)
         mean, stddev = tuple(encoder_output)
         decoder_output = self.decoder_model([mean, stddev, detail_input, mask_input])
