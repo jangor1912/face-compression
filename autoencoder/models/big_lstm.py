@@ -1,11 +1,9 @@
-from tensorflow.python.keras import Model, Input
+from tensorflow.python.keras import Input, Model
 from tensorflow.python.keras.backend import concatenate
-from tensorflow.python.keras.layers import Conv2D, Reshape, MaxPool2D, Dense, BatchNormalization, \
-    LeakyReLU, Flatten, \
-    ConvLSTM2D, TimeDistributed, MaxPooling2D, Dropout, Conv2DTranspose, Lambda
+from tensorflow.python.keras.layers import BatchNormalization, Conv2D, Conv2DTranspose, ConvLSTM2D, Dense, Dropout, \
+    Flatten, LeakyReLU, MaxPool2D, MaxPooling2D, RepeatVector, Reshape, TimeDistributed
 
-from autoencoder.models.utils import SampleLayer, DummyMaskLayer, \
-    EpsilonLayer
+from autoencoder.models.utils import DummyMaskLayer, EpsilonLayer, SampleLayer
 
 
 class Architecture(object):
@@ -369,11 +367,17 @@ class LSTMDecoder128(Architecture):
         net = TimeDistributed(Dense(self.latent_size, activation='relu'))(samples)
         # reexpand the input from flat:
         net = TimeDistributed(Reshape((1, 1, self.latent_size)))(net)
+        net = TimeDistributed(LeakyReLU(alpha=self.leak))(net)
 
         # {frames}x1x1x1024
         net = TimeDistributed(Conv2DTranspose(1024, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x2x2x1024
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail2x2x1024])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 2, 2, 1024))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail2x2x1024)
+                               ))])
+
         net = TimeDistributed(Dropout(self.dropout))(net)
         # {frames}x2x2x2048
         net = ConvLSTM2D(filters=1024, kernel_size=3, return_sequences=True,
@@ -391,7 +395,11 @@ class LSTMDecoder128(Architecture):
         # {frames}x2x2x1024
         net = TimeDistributed(Conv2DTranspose(512, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x4x4x512
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail4x4x512])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 4, 4, 512))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail4x4x512)
+                               ))])
         # {frames}x4x4x1024
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=512, kernel_size=3, return_sequences=True,
@@ -410,7 +418,11 @@ class LSTMDecoder128(Architecture):
         # {frames}x4x4x512
         net = TimeDistributed(Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x8x8x256
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail8x8x256])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 8, 8, 256))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail8x8x256)
+                               ))])
         # {frames}x8x8x512
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=256, kernel_size=3, return_sequences=True,
@@ -428,7 +440,11 @@ class LSTMDecoder128(Architecture):
         # {frames}x8x8x256
         net = TimeDistributed(Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x16x16x128
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail16x16x128])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 16, 16, 128))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail16x16x128)
+                               ))])
         # {frames}x16x16x256
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=128, kernel_size=3, return_sequences=True,
@@ -447,7 +463,11 @@ class LSTMDecoder128(Architecture):
         # {frames}x16x16x128
         net = TimeDistributed(Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x32x32x64
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail32x32x64])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 32, 32, 64))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail32x32x64)
+                               ))])
         # {frames}x32x32x128
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=64, kernel_size=3, return_sequences=True,
@@ -466,7 +486,11 @@ class LSTMDecoder128(Architecture):
         # {frames}x32x32x64
         net = TimeDistributed(Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x64x64x32
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail64x64x32])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 64, 64, 32))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail64x64x32)
+                               ))])
         # {frames}x64x64x64
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=32, kernel_size=3, return_sequences=True,
@@ -485,7 +509,11 @@ class LSTMDecoder128(Architecture):
         # {frames}x64x64x32
         net = TimeDistributed(Conv2DTranspose(16, (3, 3), strides=(2, 2), padding='same'))(net)
         # {frames}x128x128x16
-        net = TimeDistributed(Lambda(lambda x: concatenate([x, detail128x128x16])))(net)
+        net = concatenate([net,
+                           Reshape((-1, 128, 128, 16))(
+                               RepeatVector(net.shape[1])(
+                                   Flatten()(detail128x128x16)
+                               ))])
         # {frames}x128x128x32
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = ConvLSTM2D(filters=16, kernel_size=3, return_sequences=True,
