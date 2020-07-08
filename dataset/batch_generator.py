@@ -111,8 +111,8 @@ class BatchSequence(Sequence):
                 mask = self.rgb_image_to_np_array(mask)
                 video_sequence.append(frame)
                 mask_sequence.append(mask)
-            if len(video_sequence) != self.frames_no:
-                raise RuntimeError(f"Sequence of {self.frames_no} frames cannot be read from video {video_path}, "
+            if len(video_sequence) != frames_no:
+                raise RuntimeError(f"Sequence of {frames_no} frames cannot be read from video {video_path}, "
                                    f"starting at frame {start_frame}. Already read {len(video_sequence)} frames.")
         except Exception:
             raise
@@ -151,10 +151,9 @@ class LSTMSequence(BatchSequence):
                  frames_no=3, encoder_frames_no=30):
         super().__init__(data_dir, input_size, batch_size, frames_no)
         self.encoder_frames_no = encoder_frames_no
-        self.video_length_in_frames = self.video_length * self.video_frame_rate
-        self.last_possible_encoder_frame = self.video_length_in_frames - self.encoder_frames_no - 1
+        self.last_possible_encoder_frame = self.video_length - self.encoder_frames_no - 1
         assert self.last_possible_encoder_frame > 0, f"Cannot properly encode {self.encoder_frames_no} frames " \
-                                                     f"using videos only {self.video_length} (s) long!"
+                                                     f"using videos only {self.video_length} (frames) long!"
 
     def __getitem__(self, index):
         start_video = index * self.batch_size
@@ -176,19 +175,21 @@ class LSTMSequence(BatchSequence):
                                             frames_no=self.encoder_frames_no)
             encoder_batch.append(np.array(encoder_seq))
 
-            video_seq, mask_seq = self.get_input(video_path, mask_path, int(start_frame))
-            index_of_image_to_generate = random.randint(self.frames_no, len(video_seq) - 1)
+            index_of_image_to_generate = random.randint(self.frames_no + 1,
+                                                        Deconstructor.get_video_length(video_path) - self.frames_no - 1)
+            video_seq, mask_seq = self.get_input(video_path, mask_path,
+                                                 start_frame=index_of_image_to_generate - self.frames_no,
+                                                 frames_no=self.frames_no)
             index_of_detail_image = random.randint(0, Deconstructor.get_video_length(video_path) - 1)
             detail_seq, _ = self.get_input(video_path, mask_path, int(index_of_detail_image), frames_no=2)
             detail_batch.append(np.array(detail_seq[0]))
-            input_mask_seq = np.array(mask_seq[index_of_image_to_generate - self.frames_no + 1
-                                               :index_of_image_to_generate + 1])
+            input_mask_seq = np.array(mask_seq)
             mask_batch.append(input_mask_seq)
             target_mask = np.copy(input_mask_seq[-1])
             target_mask = self.np_mask_to_rgb_image(target_mask)
             target_mask = self.rgb_image_to_np_array(target_mask)
             target_batch.append(
-                [np.copy(video_seq[index_of_image_to_generate]),
+                [np.copy(video_seq[-1]),
                  target_mask])
         return [np.array(encoder_batch), np.array(detail_batch), np.array(mask_batch)], np.array(target_batch)
 

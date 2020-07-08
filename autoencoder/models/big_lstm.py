@@ -354,8 +354,7 @@ class LSTMDecoder128(Architecture):
         # {frames}x1x1x1024
         mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
         mask_net = TimeDistributed(Flatten(name="mask_flatten"))(mask_net)
-        mask_net = TimeDistributed(Dense(self.latent_size, name="epsilon_input"))(mask_net)
-        epsilon = TimeDistributed(EpsilonLayer(alpha=self.alpha, name="epsilon"))(mask_net)
+        epsilon = TimeDistributed(Dense(self.latent_size), name="epsilon")(mask_net)
 
         samples = SampleLayer(beta=self.beta, capacity=self.latent_size, epsilon_sequence=True,
                               name="sampling_layer")([mean_input, stddev_input, epsilon])
@@ -576,9 +575,11 @@ class VariationalLSTMAutoEncoder128(object):
 
 
 def test_summary():
-    sequence_encoder = LSTMEncoder128()
-    sequence_encoder.model.summary()
-    auto_encoder = VariationalLSTMAutoEncoder128()
+    auto_encoder = VariationalLSTMAutoEncoder128(batch_size=4,
+                                                 encoder_frames_no=30,
+                                                 decoder_frames_no=3,
+                                                 alpha=5.0,
+                                                 beta=5.0)
     auto_encoder.summary()
 
 
