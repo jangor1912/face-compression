@@ -181,7 +181,7 @@ class LSTMSequence(BatchSequence):
                                                  start_frame=index_of_image_to_generate - self.frames_no,
                                                  frames_no=self.frames_no)
             index_of_detail_image = random.randint(0, Deconstructor.get_video_length(video_path) - 1)
-            detail_seq, _ = self.get_input(video_path, mask_path, int(index_of_detail_image), frames_no=2)
+            detail_seq, _ = self.get_input(video_path, mask_path, int(index_of_detail_image), frames_no=1)
             detail_batch.append(np.array(detail_seq[0]))
             input_mask_seq = np.array(mask_seq)
             mask_batch.append(input_mask_seq)

@@ -182,8 +182,8 @@ class VariationalAutoEncoder(object):
         self.model = self.Build()
 
     def Build(self):
-        encoder_inputs, encoder_outputs = self.encoder.layers()
-        decoder_inputs, decoder_outputs = self.decoder.layers(encoder_outputs)
+        encoder_inputs, encoder_outputs = self.encoder.layers
+        decoder_inputs, decoder_outputs = self.decoder.layers
         net = DummyMaskLayer()(decoder_outputs)
         return Model(inputs=encoder_inputs, outputs=net)
 
