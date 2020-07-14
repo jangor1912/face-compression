@@ -8,6 +8,18 @@ THE UNLICENSE
 """
 import tensorflow as tf
 from tensorflow.python import keras as K
+from tensorflow.python.keras.layers import Activation, BatchNormalization, Conv2D, Dense, GlobalAveragePooling2D, \
+    Reshape, TimeDistributed, add, SeparableConv2D
+
+
+class SwishLayer(K.layers.Layer):
+    @staticmethod
+    def swish(x, beta=1):
+        return x * K.backend.sigmoid(beta * x)
+
+    def call(self, x, **kwargs):
+        x = Activation(self.swish)(x)
+        return x
 
 
 class ConvBnRelu(K.Model):
@@ -214,6 +226,120 @@ class EpsilonLayer(K.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape
+
+
+class SELayer(K.layers.Layer):
+
+    def squeeze_excite_block(self, input_tensor, ratio=16):
+        """ Create a channel-wise squeeze-excite block
+        Args:
+            input_tensor: input Keras tensor
+            ratio: number of output filters
+        Returns: a Keras tensor
+        References
+        -   [Squeeze and Excitation Networks](https://arxiv.org/abs/1709.01507)
+        """
+        init = input_tensor
+        channel_axis = -1  # Assumption that the channels are last
+        filters = init._shape_val[channel_axis]
+        se_shape = (1, 1, filters)
+
+        se = GlobalAveragePooling2D()(init)
+        se = Reshape(se_shape)(se)
+        se = Dense(filters // ratio, activation='relu', kernel_initializer='he_normal', use_bias=False)(se)
+        se = Dense(filters, activation='sigmoid', kernel_initializer='he_normal', use_bias=False)(se)
+
+        x = K.layers.multiply([init, se])
+        return x
+
+    def spatial_squeeze_excite_block(self, input_tensor):
+        """ Create a spatial squeeze-excite block
+        Args:
+            input_tensor: input Keras tensor
+        Returns: a Keras tensor
+        References
+        -   [Concurrent Spatial and Channel Squeeze & Excitation in Fully Convolutional Networks](https://arxiv.org/abs/1803.02579)
+        """
+
+        se = Conv2D(1, (1, 1), activation='sigmoid', use_bias=False,
+                    kernel_initializer='he_normal')(input_tensor)
+
+        x = K.layers.multiply([input_tensor, se])
+        return x
+
+    def channel_spatial_squeeze_excite(self, input_tensor, ratio=16):
+        """ Create a spatial squeeze-excite block
+        Args:
+            input_tensor: input Keras tensor
+            ratio: number of output filters
+        Returns: a Keras tensor
+        References
+        -   [Squeeze and Excitation Networks](https://arxiv.org/abs/1709.01507)
+        -   [Concurrent Spatial and Channel Squeeze & Excitation in Fully Convolutional Networks](https://arxiv.org/abs/1803.02579)
+        """
+
+        cse = self.squeeze_excite_block(input_tensor, ratio)
+        sse = self.spatial_squeeze_excite_block(input_tensor)
+
+        x = add([cse, sse])
+        return x
+
+    def call(self, x, **kwargs):
+        x = self.csse_block(x, self.name)
+        return x
+
+
+class EncoderResidualLayer(K.layers.Layer):
+    def __init__(self, depth, **kwargs):
+        self.depth = depth
+        super(EncoderResidualLayer, self).__init__(**kwargs)
+
+    def call(self, x, **kwargs):
+        x = BatchNormalization(x)
+        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=3,
+                                   use_bias=False, data_format='channels_last',
+                                   padding='same'))(x)
+        x = BatchNormalization(x)
+        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=3,
+                                   use_bias=False, data_format='channels_last',
+                                   padding='same'))(x)
+        x = TimeDistributed(SELayer)(x)
+
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], input_shape[1], input_shape[2], input_shape[3], self.depth
+
+
+class NVAEResidualLayer(K.layers.Layer):
+    def __init__(self, depth, **kwargs):
+        self.depth = depth
+        super(NVAEResidualLayer, self).__init__(**kwargs)
+
+    def call(self, x, **kwargs):
+        x = BatchNormalization(x)
+        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=1,
+                                   use_bias=False, data_format='channels_last',
+                                   padding='same'))(x)
+        x = BatchNormalization(x)
+        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(SeparableConv2D(filters=self.depth, kernel_size=5,
+                                            use_bias=False, data_format='channels_last',
+                                            padding='same'))(x)
+        x = BatchNormalization(x)
+        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=1,
+                                   use_bias=False, data_format='channels_last',
+                                   padding='same'))(x)
+        x = BatchNormalization(x)
+        x = TimeDistributed(SELayer)(x)
+
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], input_shape[1], input_shape[2], input_shape[3], self.depth
 
 
 class SequencesToBatchesLayer(K.layers.Layer):
