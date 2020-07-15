@@ -9,7 +9,7 @@ THE UNLICENSE
 import tensorflow as tf
 from tensorflow.python import keras as K
 from tensorflow.python.keras.layers import Activation, BatchNormalization, Conv2D, Dense, GlobalAveragePooling2D, \
-    Reshape, TimeDistributed, add, SeparableConv2D
+    Reshape, TimeDistributed, add, SeparableConv2D, ConvLSTM2D
 
 
 class SwishLayer(K.layers.Layer):
@@ -128,26 +128,17 @@ class SampleLayer(K.layers.Layer):
             sample = SampleLayer('bvae', 16)([mean, stddev])
     """
 
-    def __init__(self, latent_regularizer='bvae',
-                 beta=100., capacity=0.,
+    def __init__(self,
+                 beta=100.,
                  epsilon_sequence=False,
                  randomSample=True,
                  **kwargs):
         """
         args:
         ------
-        latent_regularizer : str
-            Either 'bvae', 'vae', or 'no'
-            Determines whether regularization is applied
-                to the latent space representation.
         beta : float
             beta > 1, used for 'bvae' latent_regularizer,
             (Unused if 'bvae' not selected)
-        capacity : float
-            used for 'bvae' to try to break input down to a set number
-                of basis. (e.g. at 25, the network will try to use
-                25 dimensions of the latent space)
-            (unused if 'bvae' not selected)
         randomSample : bool
             whether or not to use random sampling when selecting from distribution.
             if false, the latent vector equals the mean, essentially turning this into a
@@ -156,9 +147,7 @@ class SampleLayer(K.layers.Layer):
         ex.
             sample = SampleLayer('bvae', 16)([mean, stddev])
         """
-        self.reg = latent_regularizer
         self.beta = beta
-        self.capacity = capacity
         self.random = randomSample
         self.epsilon_sequence = epsilon_sequence
         self.shape = None
@@ -170,7 +159,7 @@ class SampleLayer(K.layers.Layer):
 
         super(SampleLayer, self).build(input_shape)  # needed for layers
 
-    def call(self, x):
+    def call(self, x, **kwargs):
         if len(x) != 3:
             raise Exception('input layers must be a list: mean, stddev and epsilon')
         if len(x[0].shape) != 2 or len(x[1].shape) != 2:
@@ -180,21 +169,12 @@ class SampleLayer(K.layers.Layer):
         stddev = x[1]
         epsilon = x[2]
 
-        if self.reg == 'bvae':
-            # kl divergence:
-            latent_loss = -0.5 * K.backend.mean(1 + stddev
-                                                - K.backend.square(mean)
-                                                - K.backend.exp(stddev), axis=-1)
-            # use beta to force less usage of vector space:
-            # also try to use <capacity> dimensions of the space:
-            latent_loss = self.beta * K.backend.abs(latent_loss - self.capacity / self.shape.as_list()[1])
-            self.add_loss(latent_loss, x)
-        elif self.reg == 'vae':
-            # kl divergence:
-            latent_loss = -0.5 * K.backend.mean(1 + stddev
-                                                - K.backend.square(mean)
-                                                - K.backend.exp(stddev), axis=-1)
-            self.add_loss(latent_loss, x)
+        # kl divergence:
+        latent_loss = -0.5 * K.backend.mean(1 + stddev
+                                            - K.backend.square(mean)
+                                            - K.backend.exp(stddev), axis=-1)
+        latent_loss = latent_loss * self.beta
+        self.add_loss(latent_loss, x)
 
         # epsilon = self.epsilon or K.backend.random_normal(shape=self.shape,
         #                                                   mean=0., stddev=1.)
@@ -229,6 +209,9 @@ class EpsilonLayer(K.layers.Layer):
 
 
 class SELayer(K.layers.Layer):
+    def __init__(self, depth, **kwargs):
+        self.depth = depth
+        super(SELayer, self).__init__(**kwargs)
 
     def squeeze_excite_block(self, input_tensor, ratio=16):
         """ Create a channel-wise squeeze-excite block
@@ -285,7 +268,7 @@ class SELayer(K.layers.Layer):
         return x
 
     def call(self, x, **kwargs):
-        x = self.csse_block(x, self.name)
+        x = self.channel_spatial_squeeze_excite(x, ratio=self.depth)
         return x
 
 
@@ -295,22 +278,21 @@ class EncoderResidualLayer(K.layers.Layer):
         super(EncoderResidualLayer, self).__init__(**kwargs)
 
     def call(self, x, **kwargs):
-        x = BatchNormalization(x)
+        x = BatchNormalization()(x)
         x = TimeDistributed(SwishLayer())(x)
-        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=3,
-                                   use_bias=False, data_format='channels_last',
-                                   padding='same'))(x)
-        x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer())(x)
-        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=3,
-                                   use_bias=False, data_format='channels_last',
-                                   padding='same'))(x)
-        x = TimeDistributed(SELayer())(x)
+        x = ConvLSTM2D(filters=self.depth, kernel_size=(3, 3), data_format='channels_last',
+                       padding='same', return_sequences=False)(x)
+        x = BatchNormalization()(x)
+        x = SwishLayer()(x)
+        x = Conv2D(filters=self.depth, kernel_size=3,
+                   use_bias=False, data_format='channels_last',
+                   padding='same')(x)
+        x = SELayer(depth=self.depth)(x)
 
         return x
 
     def compute_output_shape(self, input_shape):
-        return input_shape[0], input_shape[1], input_shape[2], input_shape[3], self.depth
+        return input_shape[0], input_shape[2], input_shape[3], self.depth
 
 
 class NVAEResidualLayer(K.layers.Layer):
@@ -319,27 +301,27 @@ class NVAEResidualLayer(K.layers.Layer):
         super(NVAEResidualLayer, self).__init__(**kwargs)
 
     def call(self, x, **kwargs):
-        x = BatchNormalization(x)
-        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=1,
-                                   use_bias=False, data_format='channels_last',
-                                   padding='same'))(x)
-        x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer())(x)
-        x = TimeDistributed(SeparableConv2D(filters=self.depth, kernel_size=5,
-                                            use_bias=False, data_format='channels_last',
-                                            padding='same'))(x)
-        x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer())(x)
-        x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=1,
-                                   use_bias=False, data_format='channels_last',
-                                   padding='same'))(x)
-        x = BatchNormalization(x)
-        x = TimeDistributed(SELayer())(x)
+        x = BatchNormalization()(x)
+        x = Conv2D(filters=self.depth, kernel_size=1,
+                   use_bias=False, data_format='channels_last',
+                   padding='same')(x)
+        x = BatchNormalization()(x)
+        x = SwishLayer()(x)
+        x = SeparableConv2D(filters=self.depth, kernel_size=5,
+                            use_bias=False, data_format='channels_last',
+                            padding='same')(x)
+        x = BatchNormalization()(x)
+        x = SwishLayer()(x)
+        x = Conv2D(filters=self.depth, kernel_size=1,
+                   use_bias=False, data_format='channels_last',
+                   padding='same')(x)
+        x = BatchNormalization()(x)
+        x = SELayer(depth=self.depth)(x)
 
         return x
 
     def compute_output_shape(self, input_shape):
-        return input_shape[0], input_shape[1], input_shape[2], input_shape[3], self.depth
+        return input_shape[0], input_shape[1], input_shape[2], self.depth
 
 
 class SequencesToBatchesLayer(K.layers.Layer):
