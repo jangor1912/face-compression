@@ -155,6 +155,11 @@ class LSTMSequence(BatchSequence):
         assert self.last_possible_encoder_frame > 0, f"Cannot properly encode {self.encoder_frames_no} frames " \
                                                      f"using videos only {self.video_length} (frames) long!"
 
+    def __len__(self):
+        sequences_per_video = 1
+        result = int(np.floor(len(self.videos_paths) * sequences_per_video / float(self.batch_size)))
+        return result
+
     def __getitem__(self, index):
         start_video = index * self.batch_size
         start_frame = np.floor(start_video / len(self.videos_paths)) * self.frames_no
