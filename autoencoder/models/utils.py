@@ -296,16 +296,16 @@ class EncoderResidualLayer(K.layers.Layer):
 
     def call(self, x, **kwargs):
         x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(SwishLayer())(x)
         x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=3,
                                    use_bias=False, data_format='channels_last',
                                    padding='same'))(x)
         x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(SwishLayer())(x)
         x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=3,
                                    use_bias=False, data_format='channels_last',
                                    padding='same'))(x)
-        x = TimeDistributed(SELayer)(x)
+        x = TimeDistributed(SELayer())(x)
 
         return x
 
@@ -324,17 +324,17 @@ class NVAEResidualLayer(K.layers.Layer):
                                    use_bias=False, data_format='channels_last',
                                    padding='same'))(x)
         x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(SwishLayer())(x)
         x = TimeDistributed(SeparableConv2D(filters=self.depth, kernel_size=5,
                                             use_bias=False, data_format='channels_last',
                                             padding='same'))(x)
         x = BatchNormalization(x)
-        x = TimeDistributed(SwishLayer)(x)
+        x = TimeDistributed(SwishLayer())(x)
         x = TimeDistributed(Conv2D(filters=self.depth, kernel_size=1,
                                    use_bias=False, data_format='channels_last',
                                    padding='same'))(x)
         x = BatchNormalization(x)
-        x = TimeDistributed(SELayer)(x)
+        x = TimeDistributed(SELayer())(x)
 
         return x
 
