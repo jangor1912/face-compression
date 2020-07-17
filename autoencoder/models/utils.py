@@ -129,28 +129,14 @@ class SampleLayer(K.layers.Layer):
     """
 
     def __init__(self,
-                 beta=100.,
+                 beta=0.2,
                  epsilon_sequence=False,
-                 randomSample=True,
+                 relative=False,
                  **kwargs):
-        """
-        args:
-        ------
-        beta : float
-            beta > 1, used for 'bvae' latent_regularizer,
-            (Unused if 'bvae' not selected)
-        randomSample : bool
-            whether or not to use random sampling when selecting from distribution.
-            if false, the latent vector equals the mean, essentially turning this into a
-                standard autoencoder.
-        ------
-        ex.
-            sample = SampleLayer('bvae', 16)([mean, stddev])
-        """
         self.beta = beta
-        self.random = randomSample
         self.epsilon_sequence = epsilon_sequence
         self.shape = None
+        self.relative = relative
         super(SampleLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
@@ -160,14 +146,20 @@ class SampleLayer(K.layers.Layer):
         super(SampleLayer, self).build(input_shape)  # needed for layers
 
     def call(self, x, **kwargs):
-        if len(x) != 3:
-            raise Exception('input layers must be a list: mean, stddev and epsilon')
-        if len(x[0].shape) != 2 or len(x[1].shape) != 2:
-            raise Exception('input shape is not a vector [mean, stddev, epsilon]')
-
         mean = x[0]
         stddev = x[1]
         epsilon = x[2]
+
+        if self.relative:
+            # This assumes that previous_mean and previous_stddev exist within input
+            previous_mean = x[3]
+            previous_stddev = x[4]
+
+            delta_mean = mean - previous_mean
+            delta_stddev = stddev - previous_stddev
+
+            mean = mean + delta_mean
+            stddev = stddev * delta_stddev
 
         # kl divergence:
         latent_loss = -0.5 * K.backend.mean(1 + stddev
@@ -178,14 +170,11 @@ class SampleLayer(K.layers.Layer):
 
         # epsilon = self.epsilon or K.backend.random_normal(shape=self.shape,
         #                                                   mean=0., stddev=1.)
-        if self.random:
-            # 'reparameterization trick':
-            if self.epsilon_sequence:
-                mean = K.backend.repeat(mean, epsilon.shape[1])
-                stddev = K.backend.repeat(stddev, epsilon.shape[1])
-            return mean + K.backend.exp(stddev) * epsilon
-        else:  # do not perform random sampling, simply grab the impulse value
-            return mean + 0 * stddev  # Keras needs the *0 so the gradinent is not None
+        # 'reparameterization trick':
+        if self.epsilon_sequence:
+            mean = K.backend.repeat(mean, epsilon.shape[1])
+            stddev = K.backend.repeat(stddev, epsilon.shape[1])
+        return mean + K.backend.exp(stddev * 0.5) * epsilon
 
     def compute_output_shape(self, input_shape):
         return input_shape[0]

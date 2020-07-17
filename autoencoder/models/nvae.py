@@ -295,8 +295,7 @@ class NVAEDecoder128(Architecture):
 
         epsilon = EpsilonLayer(alpha=self.alpha, name="epsilon_layer")(mask_net)
 
-        sample = SampleLayer(beta=self.beta, capacity=self.latent_size,
-                             name="sampling_layer")([mean_input, stddev_input, epsilon])
+        sample = SampleLayer(beta=self.beta, name="sampling_layer")([mean_input, stddev_input, epsilon])
 
         ###################
         # Decoder network #
@@ -331,8 +330,9 @@ class NVAEDecoder128(Architecture):
         stddev_4x4x512 = Flatten(data_format="channels_last")(stddev_4x4x512)
         epsilon_4x4x512 = EpsilonLayer(alpha=self.alpha, name="epsilon_4x4x512")(mask4x4x512)
         epsilon_4x4x512 = Flatten(data_format="channels_last")(epsilon_4x4x512)
-        sample_4x4x512 = SampleLayer(beta=self.beta, capacity=512,
-                                     name="sample_4x4x512")([mean_4x4x512, stddev_4x4x512, epsilon_4x4x512])
+        sample_4x4x512 = SampleLayer(beta=self.beta, relative=True,
+                                     name="sample_4x4x512")([mean_4x4x512, stddev_4x4x512, epsilon_4x4x512,
+                                                             mean_input, stddev_input])
         sample_4x4x512 = Reshape((4, 4, 512))(sample_4x4x512)
         # 4x4x512
         net = Dropout(self.dropout)(net)
@@ -360,8 +360,9 @@ class NVAEDecoder128(Architecture):
         stddev_8x8x256 = Flatten(data_format="channels_last")(stddev_8x8x256)
         epsilon_8x8x256 = EpsilonLayer(alpha=self.alpha, name="epsilon_8x8x256")(mask8x8x256)
         epsilon_8x8x256 = Flatten(data_format="channels_last")(epsilon_8x8x256)
-        sample_8x8x256 = SampleLayer(beta=self.beta, capacity=256,
-                                     name="sample_8x8x256")([mean_8x8x256, stddev_8x8x256, epsilon_8x8x256])
+        sample_8x8x256 = SampleLayer(beta=self.beta, relative=True,
+                                     name="sample_8x8x256")([mean_8x8x256, stddev_8x8x256, epsilon_8x8x256,
+                                                             mean_4x4x512, stddev_4x4x512])
         sample_8x8x256 = Reshape((8, 8, 256))(sample_8x8x256)
         # 8x8x256
         net = Dropout(self.dropout)(net)
@@ -388,8 +389,9 @@ class NVAEDecoder128(Architecture):
         stddev_16x16x128 = Flatten(data_format="channels_last")(stddev_16x16x128)
         epsilon_16x16x128 = EpsilonLayer(alpha=self.alpha, name="epsilon_16x16x128")(mask16x16x128)
         epsilon_16x16x128 = Flatten(data_format="channels_last")(epsilon_16x16x128)
-        sample_16x16x128 = SampleLayer(beta=self.beta, capacity=128,
-                                       name="sample_16x16x128")([mean_16x16x128, stddev_16x16x128, epsilon_16x16x128])
+        sample_16x16x128 = SampleLayer(beta=self.beta, relative=True,
+                                       name="sample_16x16x128")([mean_16x16x128, stddev_16x16x128, epsilon_16x16x128,
+                                                                 mean_8x8x256, stddev_8x8x256])
         sample_16x16x128 = Reshape((16, 16, 128))(sample_16x16x128)
         # 16x16x256
         net = Dropout(self.dropout)(net)
@@ -417,8 +419,9 @@ class NVAEDecoder128(Architecture):
         stddev_32x32x64 = Flatten(data_format="channels_last")(stddev_32x32x64)
         epsilon_32x32x64 = EpsilonLayer(alpha=self.alpha, name="epsilon_32x32x64")(mask32x32x64)
         epsilon_32x32x64 = Flatten(data_format="channels_last")(epsilon_32x32x64)
-        sample_32x32x64 = SampleLayer(beta=self.beta, capacity=64,
-                                      name="sample_32x32x64")([mean_32x32x64, stddev_32x32x64, epsilon_32x32x64])
+        sample_32x32x64 = SampleLayer(beta=self.beta, relative=True,
+                                      name="sample_32x32x64")([mean_32x32x64, stddev_32x32x64, epsilon_32x32x64,
+                                                               mean_16x16x128, stddev_16x16x128])
         sample_32x32x64 = Reshape((32, 32, 64))(sample_32x32x64)
         # 32x32x128
         net = Dropout(self.dropout)(net)
@@ -446,8 +449,9 @@ class NVAEDecoder128(Architecture):
         stddev_64x64x32 = Flatten(data_format="channels_last")(stddev_64x64x32)
         epsilon_64x64x32 = EpsilonLayer(alpha=self.alpha, name="epsilon_64x64x32")(mask64x64x32)
         epsilon_64x64x32 = Flatten(data_format="channels_last")(epsilon_64x64x32)
-        sample_64x64x32 = SampleLayer(beta=self.beta, capacity=32,
-                                      name="sample_64x64x32")([mean_64x64x32, stddev_64x64x32, epsilon_64x64x32])
+        sample_64x64x32 = SampleLayer(beta=self.beta, relative=True,
+                                      name="sample_64x64x32")([mean_64x64x32, stddev_64x64x32, epsilon_64x64x32,
+                                                               mean_32x32x64, stddev_32x32x64])
         sample_64x64x32 = Reshape((64, 64, 32))(sample_64x64x32)
         # 64x64x64
         net = Dropout(self.dropout)(net)
@@ -523,8 +527,8 @@ def test_summary():
     auto_encoder = NVAEAutoEncoder128(batch_size=4,
                                       encoder_frames_no=30,
                                       decoder_frames_no=3,
-                                      alpha=5.0,
-                                      beta=5.0)
+                                      alpha=0.1,
+                                      beta=0.1)
     auto_encoder.summary()
 
 
