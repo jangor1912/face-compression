@@ -4,7 +4,7 @@ from tensorflow.python.keras.layers import BatchNormalization, Conv2D, Conv2DTra
     Flatten, MaxPool2D, MaxPooling2D, Reshape, TimeDistributed
 
 from autoencoder.models.utils import DummyMaskLayer, EncoderResidualLayer, EpsilonLayer, NVAEResidualLayer, SampleLayer, \
-    SwishLayer
+    SwishLayer, MaskResidualLayer
 
 
 class Architecture(object):
@@ -166,16 +166,14 @@ class NVAEEncoder128(Architecture):
 
 class NVAEDecoder128(Architecture):
     def __init__(self,
-                 frames_no=3,
                  alpha=10.0,
                  beta=10.0,
                  batch_size=4):
         self.alpha = alpha
         self.beta = beta
-        self.mask_input_shape = (frames_no, 128, 128, 1)
+        self.mask_input_shape = (128, 128, 1)
         super().__init__(input_shape=(128, 128, 3),
                          batch_size=batch_size,
-                         frames_no=frames_no,
                          latent_size=1024)
 
     def layers(self):
@@ -193,100 +191,49 @@ class NVAEDecoder128(Architecture):
         ########################
 
         # 128x128x3
-        mask_net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
-                                          use_bias=False, data_format='channels_last',
-                                          padding='same'))(mask_input)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(Conv2D(filters=16, kernel_size=3,
-                                          use_bias=False, data_format='channels_last',
-                                          padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask_net)
-        mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
+        mask_net = NVAEResidualLayer(depth=16)(mask_input)
+        mask_net = NVAEResidualLayer(depth=16)(mask_net)
+        mask_net = MaxPooling2D(pool_size=2)(mask_net)
+        mask_net = Dropout(self.dropout)(mask_net)
 
         # 64x64x16
-        mask_net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
-                                          use_bias=False, data_format='channels_last',
-                                          padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(Conv2D(filters=32, kernel_size=3,
-                                          use_bias=False, data_format='channels_last',
-                                          padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask64x64x32 = ConvLSTM2D(filters=32, kernel_size=(3, 3), data_format='channels_last',
-                                  padding='same', return_sequences=False)(mask_net)
-        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask_net)
-        mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
+        mask_net = NVAEResidualLayer(depth=32)(mask_net)
+        mask_net = NVAEResidualLayer(depth=32)(mask_net)
+        mask64x64x32 = MaskResidualLayer(depth=32)(mask_net)
+        mask_net = MaxPooling2D(pool_size=2)(mask_net)
+        mask_net = Dropout(self.dropout)(mask_net)
 
         # 32x32x32
-        mask_net = TimeDistributed(Conv2D(filters=64, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(Conv2D(filters=64, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask32x32x64 = ConvLSTM2D(filters=64, kernel_size=(3, 3), data_format='channels_last',
-                                  padding='same', return_sequences=False)(mask_net)
-        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask_net)
-        mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
+        mask_net = NVAEResidualLayer(depth=64)(mask_net)
+        mask_net = NVAEResidualLayer(depth=64)(mask_net)
+        mask32x32x64 = MaskResidualLayer(depth=64)(mask_net)
+        mask_net = MaxPooling2D(pool_size=2)(mask_net)
+        mask_net = Dropout(self.dropout)(mask_net)
 
         # 16x16x64
-        mask_net = TimeDistributed(Conv2D(filters=128, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(Conv2D(filters=128, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask16x16x128 = ConvLSTM2D(filters=128, kernel_size=(3, 3), data_format='channels_last',
-                                   padding='same', return_sequences=False)(mask_net)
-        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask_net)
-        mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
+        mask_net = NVAEResidualLayer(depth=128)(mask_net)
+        mask_net = NVAEResidualLayer(depth=128)(mask_net)
+        mask16x16x128 = MaskResidualLayer(depth=128)(mask_net)
+        mask_net = MaxPooling2D(pool_size=2)(mask_net)
+        mask_net = Dropout(self.dropout)(mask_net)
 
         # 8x8x128
-        mask_net = TimeDistributed(Conv2D(filters=256, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(Conv2D(filters=256, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask8x8x256 = ConvLSTM2D(filters=256, kernel_size=(3, 3), data_format='channels_last',
-                                 padding='same', return_sequences=False)(mask_net)
-        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask_net)
-        mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
+        mask_net = NVAEResidualLayer(depth=256)(mask_net)
+        mask_net = NVAEResidualLayer(depth=256)(mask_net)
+        mask8x8x256 = MaskResidualLayer(depth=256)(mask_net)
+        mask_net = MaxPooling2D(pool_size=2)(mask_net)
+        mask_net = Dropout(self.dropout)(mask_net)
 
         # 4x4x256
-        mask_net = TimeDistributed(Conv2D(filters=512, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = TimeDistributed(Conv2D(filters=512, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask4x4x512 = ConvLSTM2D(filters=512, kernel_size=(3, 3), data_format='channels_last',
-                                 padding='same', return_sequences=False)(mask_net)
-        mask_net = TimeDistributed(MaxPooling2D(pool_size=2))(mask_net)
-        mask_net = TimeDistributed(Dropout(self.dropout))(mask_net)
+        mask_net = NVAEResidualLayer(depth=512)(mask_net)
+        mask_net = NVAEResidualLayer(depth=512)(mask_net)
+        mask4x4x512 = MaskResidualLayer(depth=512)(mask_net)
+        mask_net = MaxPooling2D(pool_size=2)(mask_net)
+        mask_net = Dropout(self.dropout)(mask_net)
 
         # 2x2x512
-        mask_net = TimeDistributed(Conv2D(filters=1024, kernel_size=3, use_bias=False,
-                                          data_format='channels_last', padding='same'))(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = TimeDistributed(SwishLayer())(mask_net)
-        mask_net = ConvLSTM2D(filters=1024, kernel_size=(3, 3), data_format='channels_last',
-                              padding='same', return_sequences=False)(mask_net)
-        mask_net = BatchNormalization()(mask_net)
-        mask_net = SwishLayer()(mask_net)
+        mask_net = NVAEResidualLayer(depth=1024)(mask_net)
+        mask_net = NVAEResidualLayer(depth=1024)(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         # 1x1x1024
         mask_net = Dropout(self.dropout)(mask_net)
@@ -509,17 +456,15 @@ class NVAEDecoder128(Architecture):
 
 
 class NVAEAutoEncoder128(object):
-    def __init__(self, batch_size=16, alpha=5.0, beta=5.0,
-                 encoder_frames_no=30, decoder_frames_no=3):
+    def __init__(self, batch_size=16, alpha=0.2, beta=0.2,
+                 encoder_frames_no=30):
         self.latent_size = 1024
         self.batch_size = batch_size
         self.encoder_frames_no = encoder_frames_no
-        self.decoder_frames_no = decoder_frames_no
         self.encoder = NVAEEncoder128(batch_size=batch_size,
                                       frames_no=encoder_frames_no)
         self.encoder_model = self.encoder.Build()
         self.decoder = NVAEDecoder128(batch_size=batch_size,
-                                      frames_no=decoder_frames_no,
                                       alpha=alpha,
                                       beta=beta)
         self.decoder_model = self.decoder.Build()
@@ -527,14 +472,13 @@ class NVAEAutoEncoder128(object):
 
     def Build(self):
         sequence_input = Input((self.encoder_frames_no, 128, 128, 3), self.batch_size)
-        detail_input = Input((128, 128, 3), self.batch_size)
-        mask_input = Input((self.decoder_frames_no, 128, 128, 1), self.batch_size)
+        mask_input = Input((128, 128, 1), self.batch_size)
         encoder_output = self.encoder_model(sequence_input)
         mean, stddev, skip_4x4x512, skip_8x8x256, skip_16x16x128, skip_32x32x64, skip_64x64x32 = tuple(encoder_output)
         decoder_output = self.decoder_model([mean, stddev, mask_input,
                                              skip_4x4x512, skip_8x8x256, skip_16x16x128, skip_32x32x64, skip_64x64x32])
         net = DummyMaskLayer()(decoder_output)
-        return Model(inputs=[sequence_input, detail_input, mask_input], outputs=net)
+        return Model(inputs=[sequence_input, mask_input], outputs=net)
 
     def summary(self):
         print("Encoder summary:")
@@ -548,7 +492,6 @@ class NVAEAutoEncoder128(object):
 def test_summary():
     auto_encoder = NVAEAutoEncoder128(batch_size=4,
                                       encoder_frames_no=30,
-                                      decoder_frames_no=3,
                                       alpha=0.1,
                                       beta=0.1)
     auto_encoder.summary()

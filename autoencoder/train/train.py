@@ -7,8 +7,9 @@ from tensorflow.python.keras.utils import OrderedEnqueuer
 from autoencoder.metric.metric import FaceMetric
 from autoencoder.models.big import VariationalAutoEncoder128
 from autoencoder.models.big_lstm import VariationalLSTMAutoEncoder128
+from autoencoder.models.nvae import NVAEAutoEncoder128
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
-from dataset.batch_generator import BatchSequence, LSTMSequence
+from dataset.batch_generator import BatchSequence, LSTMSequence, NVAESequence
 from diagnoser.diagnoser import ModelDiagonoser
 
 
@@ -201,6 +202,44 @@ def train_lstm(train_directory, test_directory, samples_directory,
                                                      decoder_frames_no=decoder_frames_no,
                                                      alpha=alpha,
                                                      beta=beta)
+        auto_encoder.summary()
+        model = auto_encoder.model
+    t = Training(model=model,
+                 training_sequence=train_seq,
+                 validation_sequence=test_seq,
+                 metric=metric,
+                 callbacks=callbacks,
+                 output_dir=samples_directory,
+                 epochs=epochs)
+    t.train()
+
+
+def train_vae(train_directory, test_directory, samples_directory,
+              epochs=100,
+              model=None,
+              alpha=0.2,
+              beta=0.2,
+              batch_size=4,
+              encoder_frames_no=30):
+    encoder_frames_no = encoder_frames_no
+    input_shape = (128, 128, 3)
+
+    train_seq = NVAESequence(train_directory, input_size=input_shape[:-1],
+                             batch_size=batch_size,
+                             encoder_frames_no=encoder_frames_no)
+    test_seq = NVAESequence(test_directory, input_size=input_shape[:-1],
+                            batch_size=batch_size,
+                            encoder_frames_no=encoder_frames_no)
+
+    num_samples = 3  # samples to be generated each epoch
+    callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
+
+    metric = FaceMetric.get_loss_from_batch
+    if not model:
+        auto_encoder = NVAEAutoEncoder128(batch_size=batch_size,
+                                          encoder_frames_no=encoder_frames_no,
+                                          alpha=alpha,
+                                          beta=beta)
         auto_encoder.summary()
         model = auto_encoder.model
     t = Training(model=model,

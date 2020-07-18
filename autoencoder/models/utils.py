@@ -287,6 +287,29 @@ class EncoderResidualLayer(K.layers.Layer):
         return input_shape[0], input_shape[2], input_shape[3], self.depth
 
 
+class MaskResidualLayer(K.layers.Layer):
+    def __init__(self, depth, **kwargs):
+        self.depth = depth
+        super(MaskResidualLayer, self).__init__(**kwargs)
+
+    def call(self, x, **kwargs):
+        x = BatchNormalization()(x)
+        x = SwishLayer()(x)
+        x = Conv2D(filters=self.depth, kernel_size=3,
+                   use_bias=False, data_format='channels_last',
+                   padding='same')(x)
+        x = BatchNormalization()(x)
+        x = SwishLayer()(x)
+        x = Conv2D(filters=self.depth, kernel_size=3,
+                   use_bias=False, data_format='channels_last',
+                   padding='same')(x)
+        x = SELayer(depth=self.depth)(x)
+        return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], input_shape[1], input_shape[2], self.depth
+
+
 class NVAEResidualLayer(K.layers.Layer):
     def __init__(self, depth, **kwargs):
         self.depth = depth
