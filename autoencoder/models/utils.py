@@ -166,7 +166,7 @@ class SampleLayer(K.layers.Layer):
                                             - K.backend.square(mean)
                                             - K.backend.exp(stddev), axis=-1)
         latent_loss = latent_loss * self.beta
-        self.add_loss(latent_loss, x)
+        self.add_loss(latent_loss, inputs=x[:2])
 
         # epsilon = self.epsilon or K.backend.random_normal(shape=self.shape,
         #                                                   mean=0., stddev=1.)
@@ -185,12 +185,15 @@ class EpsilonLayer(K.layers.Layer):
         self.alpha = alpha
         super(EpsilonLayer, self).__init__(**kwargs)
 
-    def call(self, x):
-        # mse will keep epsilon as close to zero as possible
-        # This will ensure that vector actually reminds gaussian random normal
-        latent_loss = K.backend.mean(K.backend.square(x), axis=-1)
-        latent_loss = self.alpha * latent_loss
-        self.add_loss(latent_loss, x)
+    def call(self, x, **kwargs):
+        mean = K.backend.zeros(x.shape)
+        stddev = x
+        # kl divergence:
+        latent_loss = -0.5 * K.backend.mean(1 + stddev
+                                            - K.backend.square(mean)
+                                            - K.backend.exp(stddev), axis=-1)
+        latent_loss = latent_loss * self.alpha
+        self.add_loss(latent_loss, inputs=True)
         return x
 
     def compute_output_shape(self, input_shape):

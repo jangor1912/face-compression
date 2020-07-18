@@ -325,15 +325,21 @@ class NVAEDecoder128(Architecture):
         # sampling
         decoded_4x4x1024 = concatenate([net, skip_4x4x512])
         mean_4x4x512 = NVAEResidualLayer(depth=512, name="mean_4x4x512")(decoded_4x4x1024)
+        mean_4x4x512_flat = Flatten(data_format='channels_last')(mean_4x4x512)
         stddev_4x4x512 = NVAEResidualLayer(depth=512, name="stddev_4x4x512")(decoded_4x4x1024)
-        epsilon_4x4x512 = EpsilonLayer(alpha=self.alpha, name="epsilon_4x4x512")(mask4x4x512)
+        stddev_4x4x512_flat = Flatten(data_format='channels_last')(stddev_4x4x512)
+        epsilon_4x4x512 = Flatten(data_format='channels_last')(mask4x4x512)
+        epsilon_4x4x512 = EpsilonLayer(alpha=self.alpha, name="epsilon_4x4x512")(epsilon_4x4x512)
         previous_mean = Reshape((1, 1, self.latent_size))(mean_input)
         previous_mean = Conv2DTranspose(512, (3, 3), strides=(4, 4), padding='same')(previous_mean)
+        previous_mean = Flatten(data_format='channels_last')(previous_mean)
         previous_stddev = Reshape((1, 1, self.latent_size))(stddev_input)
         previous_stddev = Conv2DTranspose(512, (3, 3), strides=(4, 4), padding='same')(previous_stddev)
+        previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
         sample_4x4x512 = SampleLayer(beta=self.beta, relative=True,
-                                     name="sample_4x4x512")([mean_4x4x512, stddev_4x4x512, epsilon_4x4x512,
+                                     name="sample_4x4x512")([mean_4x4x512_flat, stddev_4x4x512_flat, epsilon_4x4x512,
                                                              previous_mean, previous_stddev])
+        sample_4x4x512 = Reshape((4, 4, 512))(sample_4x4x512)
         # 4x4x512
         net = Dropout(self.dropout)(net)
         net = Conv2D(filters=512, kernel_size=3, use_bias=False,
@@ -355,13 +361,19 @@ class NVAEDecoder128(Architecture):
         # sampling
         decoded_8x8x256 = concatenate([net, skip_8x8x256])
         mean_8x8x256 = NVAEResidualLayer(depth=256, name="mean_8x8x256")(decoded_8x8x256)
+        mean_8x8x256_flat = Flatten(data_format='channels_last')(mean_8x8x256)
         stddev_8x8x256 = NVAEResidualLayer(depth=256, name="stddev_8x8x256")(decoded_8x8x256)
-        epsilon_8x8x256 = EpsilonLayer(alpha=self.alpha, name="epsilon_8x8x256")(mask8x8x256)
+        stddev_8x8x256_flat = Flatten(data_format='channels_last')(stddev_8x8x256)
+        epsilon_8x8x256 = Flatten(data_format='channels_last')(mask8x8x256)
+        epsilon_8x8x256 = EpsilonLayer(alpha=self.alpha, name="epsilon_8x8x256")(epsilon_8x8x256)
         previous_mean = Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same')(mean_4x4x512)
+        previous_mean = Flatten(data_format='channels_last')(previous_mean)
         previous_stddev = Conv2DTranspose(256, (3, 3), strides=(2, 2), padding='same')(stddev_4x4x512)
+        previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
         sample_8x8x256 = SampleLayer(beta=self.beta, relative=True,
-                                     name="sample_8x8x256")([mean_8x8x256, stddev_8x8x256, epsilon_8x8x256,
+                                     name="sample_8x8x256")([mean_8x8x256_flat, stddev_8x8x256_flat, epsilon_8x8x256,
                                                              previous_mean, previous_stddev])
+        sample_8x8x256 = Reshape((8, 8, 256))(sample_8x8x256)
         # 8x8x256
         net = Dropout(self.dropout)(net)
         net = Conv2D(filters=256, kernel_size=3, use_bias=False,
@@ -382,13 +394,19 @@ class NVAEDecoder128(Architecture):
         # sampling
         decoded_16x16x128 = concatenate([net, skip_16x16x128])
         mean_16x16x128 = NVAEResidualLayer(depth=128, name="mean_16x16x128")(decoded_16x16x128)
+        mean_16x16x128_flat = Flatten(data_format='channels_last')(mean_16x16x128)
         stddev_16x16x128 = NVAEResidualLayer(depth=128, name="stddev_16x16x128")(decoded_16x16x128)
-        epsilon_16x16x128 = EpsilonLayer(alpha=self.alpha, name="epsilon_16x16x128")(mask16x16x128)
+        stddev_16x16x128_flat = Flatten(data_format='channels_last')(stddev_16x16x128)
+        epsilon_16x16x128 = Flatten(data_format='channels_last')(mask16x16x128)
+        epsilon_16x16x128 = EpsilonLayer(alpha=self.alpha, name="epsilon_16x16x128")(epsilon_16x16x128)
         previous_mean = Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same')(mean_8x8x256)
+        previous_mean = Flatten(data_format='channels_last')(previous_mean)
         previous_stddev = Conv2DTranspose(128, (3, 3), strides=(2, 2), padding='same')(stddev_8x8x256)
+        previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
         sample_16x16x128 = SampleLayer(beta=self.beta, relative=True,
-                                       name="sample_16x16x128")([mean_16x16x128, stddev_16x16x128, epsilon_16x16x128,
+                                       name="sample_16x16x128")([mean_16x16x128_flat, stddev_16x16x128_flat, epsilon_16x16x128,
                                                                  previous_mean, previous_stddev])
+        sample_16x16x128 = Reshape((16, 16, 128))(sample_16x16x128)
         # 16x16x256
         net = Dropout(self.dropout)(net)
         net = Conv2D(filters=128, kernel_size=3, use_bias=False,
@@ -410,13 +428,19 @@ class NVAEDecoder128(Architecture):
         # sampling
         decoded_32x32x64 = concatenate([net, skip_32x32x64])
         mean_32x32x64 = NVAEResidualLayer(depth=64, name="mean_32x32x64")(decoded_32x32x64)
+        mean_32x32x64_flat = Flatten(data_format='channels_last')(mean_32x32x64)
         stddev_32x32x64 = NVAEResidualLayer(depth=64, name="stddev_32x32x64")(decoded_32x32x64)
-        epsilon_32x32x64 = EpsilonLayer(alpha=self.alpha, name="epsilon_32x32x64")(mask32x32x64)
+        stddev_32x32x64_flat = Flatten(data_format='channels_last')(stddev_32x32x64)
+        epsilon_32x32x64 = Flatten(data_format='channels_last')(mask32x32x64)
+        epsilon_32x32x64 = EpsilonLayer(alpha=self.alpha, name="epsilon_32x32x64")(epsilon_32x32x64)
         previous_mean = Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same')(mean_16x16x128)
+        previous_mean = Flatten(data_format='channels_last')(previous_mean)
         previous_stddev = Conv2DTranspose(64, (3, 3), strides=(2, 2), padding='same')(stddev_16x16x128)
+        previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
         sample_32x32x64 = SampleLayer(beta=self.beta, relative=True,
-                                      name="sample_32x32x64")([mean_32x32x64, stddev_32x32x64, epsilon_32x32x64,
+                                      name="sample_32x32x64")([mean_32x32x64_flat, stddev_32x32x64_flat, epsilon_32x32x64,
                                                                previous_mean, previous_stddev])
+        sample_32x32x64 = Reshape((32, 32, 64))(sample_32x32x64)
         # 32x32x128
         net = Dropout(self.dropout)(net)
         net = Conv2D(filters=64, kernel_size=3, use_bias=False,
@@ -438,13 +462,19 @@ class NVAEDecoder128(Architecture):
         # sampling
         decoded_64x64x32 = concatenate([net, skip_64x64x32])
         mean_64x64x32 = NVAEResidualLayer(depth=32, name="mean_64x64x32")(decoded_64x64x32)
+        mean_64x64x32_flat = Flatten(data_format='channels_last')(mean_64x64x32)
         stddev_64x64x32 = NVAEResidualLayer(depth=32, name="stddev_64x64x32")(decoded_64x64x32)
-        epsilon_64x64x32 = EpsilonLayer(alpha=self.alpha, name="epsilon_64x64x32")(mask64x64x32)
+        stddev_64x64x32_flat = Flatten(data_format='channels_last')(stddev_64x64x32)
+        epsilon_64x64x32 = Flatten(data_format='channels_last')(mask64x64x32)
+        epsilon_64x64x32 = EpsilonLayer(alpha=self.alpha, name="epsilon_64x64x32")(epsilon_64x64x32)
         previous_mean = Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same')(mean_32x32x64)
+        previous_mean = Flatten(data_format='channels_last')(previous_mean)
         previous_stddev = Conv2DTranspose(32, (3, 3), strides=(2, 2), padding='same')(stddev_32x32x64)
+        previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
         sample_64x64x32 = SampleLayer(beta=self.beta, relative=True,
-                                      name="sample_64x64x32")([mean_64x64x32, stddev_64x64x32, epsilon_64x64x32,
+                                      name="sample_64x64x32")([mean_64x64x32_flat, stddev_64x64x32_flat, epsilon_64x64x32,
                                                                previous_mean, previous_stddev])
+        sample_64x64x32 = Reshape((64, 64, 32))(sample_64x64x32)
         # 64x64x64
         net = Dropout(self.dropout)(net)
         net = Conv2D(filters=32, kernel_size=3, use_bias=False,
