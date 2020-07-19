@@ -166,7 +166,7 @@ class SampleLayer(K.layers.Layer):
                                             - K.backend.square(mean)
                                             - K.backend.exp(stddev), axis=-1)
         latent_loss = latent_loss * self.beta
-        self.add_loss(latent_loss, inputs=x[:2])
+        self.add_loss(latent_loss, inputs=True)
 
         # epsilon = self.epsilon or K.backend.random_normal(shape=self.shape,
         #                                                   mean=0., stddev=1.)

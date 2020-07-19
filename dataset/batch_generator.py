@@ -2,6 +2,7 @@ import os
 import random
 import re
 from os.path import isfile, join
+from pathlib import Path
 from time import time
 
 import cv2
@@ -231,6 +232,7 @@ class NVAESequence(BatchSequence):
             video_seq, mask_seq = self.get_input(video_path, mask_path,
                                                  start_frame=index_of_image_to_generate,
                                                  frames_no=1)
+            mask_batch.append(np.array(mask_seq[0]))
             target_mask = np.copy(mask_seq[0])
             target_mask = self.np_mask_to_rgb_image(target_mask)
             target_mask = self.rgb_image_to_np_array(target_mask)
@@ -241,29 +243,34 @@ class NVAESequence(BatchSequence):
 
 
 def test(input_dir, output_dir):
-    sequence = BatchSequence(input_dir, input_size=(32, 32),
-                             batch_size=4, frames_no=8)
+    sequence = NVAESequence(input_dir, input_size=(128, 128), batch_size=4, encoder_frames_no=30)
     enqueuer = OrderedEnqueuer(sequence, use_multiprocessing=True, shuffle=True)
     print("Length of sequence is {}.".format(len(sequence)))
     start_time = time()
     enqueuer.start(workers=4, max_queue_size=128)
     generator = enqueuer.get()
     img_no = 0
-    for _ in range(10):
+    for batch_no in range(10):
+        batch_dir = Path(output_dir, f"batch_{batch_no}")
+        batch_dir.mkdir(parents=True, exist_ok=True)
         input_batch, target_batch = next(generator)
         input_seq_batch = input_batch[0]
         input_mask_batch = input_batch[1]
+        seq_no = 0
         for input_seq, input_mask, _target in zip(list(input_seq_batch), list(input_mask_batch), list(target_batch)):
+            seq_dir = Path(batch_dir, f"sequence_{seq_no}")
+            seq_dir.mkdir(parents=True, exist_ok=True)
             target_img = _target[0]
             target_mask = _target[1]
             target_img = BatchSequence.np_img_to_rgb_image(target_img)
             target_mask = BatchSequence.np_img_to_rgb_image(target_mask)
-            target_img.save(os.path.join(output_dir, "target_img_" + str(img_no) + ".jpg"))
-            target_mask.save(os.path.join(output_dir, "target_mask_" + str(img_no) + ".jpg"))
+            target_img.save(os.path.join(seq_dir, "target_img_" + str(img_no) + ".jpg"))
+            target_mask.save(os.path.join(seq_dir, "target_mask_" + str(img_no) + ".jpg"))
             for input_img in list(input_seq):
                 input_img = BatchSequence.np_img_to_rgb_image(input_img)
-                input_img.save(os.path.join(output_dir, "input_img_" + str(img_no) + ".jpg"))
+                input_img.save(os.path.join(seq_dir, "input_img_" + str(img_no) + ".jpg"))
                 img_no += 1
+            seq_no += 1
     end_time = time()
     print("Function took {} s".format(end_time - start_time))
 

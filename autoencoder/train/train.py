@@ -253,7 +253,7 @@ def train_vae(train_directory, test_directory, samples_directory,
 
 
 if __name__ == "__main__":
-    train_directory = Path("G:/Magisterka/youtube_dataset/output/train")
-    test_directory = Path("G:/Magisterka/youtube_dataset/output/test")
-    samples_dir = Path("G:/Magisterka/youtube_dataset/output/samples")
-    train_small(train_directory, test_directory, samples_dir, epochs=250)
+    train_directory = Path("G:/Magisterka/youtube_dataset/output/cleared/train")
+    test_directory = Path("G:/Magisterka/youtube_dataset/output/cleared/test")
+    samples_dir = Path("G:/Magisterka/youtube_dataset/output/cleared/samples")
+    train_vae(train_directory, test_directory, samples_dir, epochs=10, batch_size=1)
