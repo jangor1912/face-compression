@@ -186,12 +186,8 @@ class EpsilonLayer(K.layers.Layer):
         super(EpsilonLayer, self).__init__(**kwargs)
 
     def call(self, x, **kwargs):
-        mean = K.backend.zeros(x.shape)
-        stddev = x
-        # kl divergence:
-        latent_loss = -0.5 * K.backend.mean(1 + stddev
-                                            - K.backend.square(mean)
-                                            - K.backend.exp(stddev), axis=-1)
+        ones = K.backend.ones(x.shape)
+        latent_loss = K.backend.mean(K.backend.square(x - ones), axis=-1)
         latent_loss = latent_loss * self.alpha
         self.add_loss(latent_loss, inputs=True)
         return x
