@@ -626,13 +626,15 @@ class ConvSN2DTranspose(Conv2DTranspose):
 
         # Infer the dynamic output shape:
         out_height = conv_utils.deconv_output_length(height,
-                                                     stride_h, kernel_h,
+                                                     kernel_h,
                                                      self.padding,
-                                                     out_pad_h)
+                                                     output_padding=out_pad_h,
+                                                     stride=stride_h)
         out_width = conv_utils.deconv_output_length(width,
-                                                    stride_w, kernel_w,
+                                                    kernel_w,
                                                     self.padding,
-                                                    out_pad_w)
+                                                    output_padding=out_pad_w,
+                                                    stride=stride_w)
         if self.data_format == 'channels_first':
             output_shape = (batch_size, self.filters, out_height, out_width)
         else:
