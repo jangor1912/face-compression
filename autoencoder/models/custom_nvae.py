@@ -285,9 +285,8 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=4)(stddev_4x4x512)
         previous_stddev = NVAEResidualLayer(depth=1024)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample = SampleLayer(beta=self.beta, relative=True,
-                             name="sampling_layer")([mean_input, stddev_input, epsilon,
-                                                     previous_mean, previous_stddev])
+        sample = SampleLayer(beta=self.beta, relative=False,
+                             name="sampling_layer")([mean_input, stddev_input, epsilon])
 
         ###################
         # Decoder network #
@@ -325,9 +324,8 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_8x8x256)
         previous_stddev = NVAEResidualLayer(depth=512)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_4x4x512 = SampleLayer(beta=self.beta, relative=True,
-                                     name="sample_4x4x512")([mean_4x4x512_flat, stddev_4x4x512_flat, epsilon_4x4x512,
-                                                             previous_mean, previous_stddev])
+        sample_4x4x512 = SampleLayer(beta=self.beta, relative=False,
+                                     name="sample_4x4x512")([mean_4x4x512_flat, stddev_4x4x512_flat, epsilon_4x4x512])
         sample_4x4x512 = Reshape((4, 4, 512))(sample_4x4x512)
         # 4x4x512
         net = Dropout(self.dropout)(net)
@@ -358,9 +356,8 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_16x16x128)
         previous_stddev = NVAEResidualLayer(depth=256)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_8x8x256 = SampleLayer(beta=self.beta, relative=True,
-                                     name="sample_8x8x256")([mean_8x8x256_flat, stddev_8x8x256_flat, epsilon_8x8x256,
-                                                             previous_mean, previous_stddev])
+        sample_8x8x256 = SampleLayer(beta=self.beta, relative=False,
+                                     name="sample_8x8x256")([mean_8x8x256_flat, stddev_8x8x256_flat, epsilon_8x8x256])
         sample_8x8x256 = Reshape((8, 8, 256))(sample_8x8x256)
         # 8x8x256
         net = Dropout(self.dropout)(net)
@@ -390,10 +387,9 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_32x32x64)
         previous_stddev = NVAEResidualLayer(depth=128)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_16x16x128 = SampleLayer(beta=self.beta, relative=True,
+        sample_16x16x128 = SampleLayer(beta=self.beta, relative=False,
                                        name="sample_16x16x128")(
-            [mean_16x16x128_flat, stddev_16x16x128_flat, epsilon_16x16x128,
-             previous_mean, previous_stddev])
+            [mean_16x16x128_flat, stddev_16x16x128_flat, epsilon_16x16x128])
         sample_16x16x128 = Reshape((16, 16, 128))(sample_16x16x128)
         # 16x16x256
         net = Dropout(self.dropout)(net)
@@ -424,10 +420,9 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_64x64x32)
         previous_stddev = NVAEResidualLayer(depth=64)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_32x32x64 = SampleLayer(beta=self.beta, relative=True,
+        sample_32x32x64 = SampleLayer(beta=self.beta, relative=False,
                                       name="sample_32x32x64")(
-            [mean_32x32x64_flat, stddev_32x32x64_flat, epsilon_32x32x64,
-             previous_mean, previous_stddev])
+            [mean_32x32x64_flat, stddev_32x32x64_flat, epsilon_32x32x64])
         sample_32x32x64 = Reshape((32, 32, 64))(sample_32x32x64)
         # 32x32x128
         net = Dropout(self.dropout)(net)

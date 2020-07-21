@@ -166,7 +166,7 @@ class SampleLayer(K.layers.Layer):
                                             - K.backend.square(mean)
                                             - K.backend.exp(stddev), axis=-1)
         latent_loss = latent_loss * self.beta
-        self.add_loss(latent_loss, inputs=True)
+        self.add_loss(latent_loss, x[:2])
 
         # epsilon = self.epsilon or K.backend.random_normal(shape=self.shape,
         #                                                   mean=0., stddev=1.)
@@ -186,10 +186,14 @@ class EpsilonLayer(K.layers.Layer):
         super(EpsilonLayer, self).__init__(**kwargs)
 
     def call(self, x, **kwargs):
-        ones = K.backend.ones(x.shape)
-        latent_loss = K.backend.mean(K.backend.square(x - ones), axis=-1)
+        mean = K.backend.zeros(x.shape)
+        stddev = x
+        # kl divergence:
+        latent_loss = -0.5 * K.backend.mean(1 + stddev
+                                            - K.backend.square(mean)
+                                            - K.backend.exp(stddev), axis=-1)
         latent_loss = latent_loss * self.alpha
-        self.add_loss(latent_loss, inputs=True)
+        self.add_loss(latent_loss)
         return x
 
     def compute_output_shape(self, input_shape):
