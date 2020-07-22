@@ -232,8 +232,9 @@ class NVAESequence(BatchSequence):
             video_seq, mask_seq = self.get_input(video_path, mask_path,
                                                  start_frame=index_of_image_to_generate,
                                                  frames_no=1)
-            mask_batch.append(np.array(mask_seq[0]))
-            target_mask = np.copy(mask_seq[0])
+            decoder_mask = np.array(mask_seq[0], dtype=np.float32)
+            mask_batch.append(decoder_mask)
+            target_mask = np.copy(decoder_mask)
             target_mask = self.np_mask_to_rgb_image(target_mask)
             target_mask = self.rgb_image_to_np_array(target_mask)
             target_batch.append(

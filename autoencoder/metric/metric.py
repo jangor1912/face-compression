@@ -17,7 +17,9 @@ class FaceMetric(object):
         self.middle = (192, 192, 192)
 
     @staticmethod
-    def get_loss(y_true, y_pred):
+    def get_loss(tensor):
+        y_true = tensor[0]
+        y_pred = tensor[1]
         produced_image = y_pred
         original_image = y_true[0]
         mask = y_true[1]
@@ -28,9 +30,8 @@ class FaceMetric(object):
 
     @classmethod
     def get_loss_from_batch(cls, y_true_batch, y_pred_batch):
-        result = list()
-        for i in range(int(y_pred_batch.shape[0])):
-            result.append(cls.get_loss(y_true_batch[i], y_pred_batch[i]))
+        tensor = tf.stack([y_true_batch, y_pred_batch], axis=1)
+        result = tf.map_fn(cls.get_loss, tensor, dtype=tf.float32)
         return tf.reduce_mean(result)
 
     def generate_mask(self, face_prediction, img_height=None, img_width=None):
