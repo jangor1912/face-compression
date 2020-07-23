@@ -3,9 +3,9 @@ from tensorflow.python.keras.backend import concatenate
 from tensorflow.python.keras.layers import BatchNormalization, ConvLSTM2D, Dropout, \
     Flatten, MaxPool2D, MaxPooling2D, Reshape, TimeDistributed
 
-from autoencoder.models.spectral_norm import ConvSN2D, DenseSN, ConvSN2DTranspose
-from autoencoder.models.utils import DummyMaskLayer, EncoderResidualLayer, EpsilonLayer, NVAEResidualLayer, \
-    SampleLayer, SwishLayer, MaskResidualLayer
+from autoencoder.models.spectral_norm import ConvSN2D, ConvSN2DTranspose, DenseSN
+from autoencoder.models.utils import DummyMaskLayer, EpsilonLayer, MaskResidualLayer, NVAEResidualLayer, SampleLayer, \
+    SmallEncoderResidualLayer, SwishLayer
 
 
 class Architecture(object):
@@ -67,8 +67,8 @@ class NVAEEncoder128(Architecture):
         skip_64x64x32 = TimeDistributed(SwishLayer())(skip_64x64x32)
         skip_64x64x32 = ConvLSTM2D(filters=32, kernel_size=(3, 3), data_format='channels_last',
                                    padding='same', return_sequences=False)(skip_64x64x32)
-        mean_64x64x32 = NVAEResidualLayer(depth=32, name="mean_64x64x32")(skip_64x64x32)
-        stddev_64x64x32 = NVAEResidualLayer(depth=32, name="stddev_64x64x32")(skip_64x64x32)
+        mean_64x64x32 = SmallEncoderResidualLayer(depth=32, name="mean_64x64x32")(skip_64x64x32)
+        stddev_64x64x32 = SmallEncoderResidualLayer(depth=32, name="stddev_64x64x32")(skip_64x64x32)
 
         # 64x64x32
         net = TimeDistributed(ConvSN2D(filters=32, kernel_size=3,
@@ -89,8 +89,8 @@ class NVAEEncoder128(Architecture):
         skip_32x32x64 = TimeDistributed(SwishLayer())(skip_32x32x64)
         skip_32x32x64 = ConvLSTM2D(filters=64, kernel_size=(3, 3), data_format='channels_last',
                                    padding='same', return_sequences=False)(skip_32x32x64)
-        mean_32x32x64 = NVAEResidualLayer(depth=64, name="mean_32x32x64")(skip_32x32x64)
-        stddev_32x32x64 = NVAEResidualLayer(depth=64, name="stddev_32x32x64")(skip_32x32x64)
+        mean_32x32x64 = SmallEncoderResidualLayer(depth=64, name="mean_32x32x64")(skip_32x32x64)
+        stddev_32x32x64 = SmallEncoderResidualLayer(depth=64, name="stddev_32x32x64")(skip_32x32x64)
 
         # 32x32x64
         net = TimeDistributed(ConvSN2D(filters=64, kernel_size=(3, 3),
@@ -110,8 +110,8 @@ class NVAEEncoder128(Architecture):
         skip_16x16x128 = TimeDistributed(SwishLayer())(skip_16x16x128)
         skip_16x16x128 = ConvLSTM2D(filters=128, kernel_size=(3, 3), data_format='channels_last',
                                     padding='same', return_sequences=False)(skip_16x16x128)
-        mean_16x16x128 = NVAEResidualLayer(depth=128, name="mean_16x16x128")(skip_16x16x128)
-        stddev_16x16x128 = NVAEResidualLayer(depth=128, name="stddev_16x16x128")(skip_16x16x128)
+        mean_16x16x128 = SmallEncoderResidualLayer(depth=128, name="mean_16x16x128")(skip_16x16x128)
+        stddev_16x16x128 = SmallEncoderResidualLayer(depth=128, name="stddev_16x16x128")(skip_16x16x128)
 
         # 16x16x64
         net = TimeDistributed(ConvSN2D(filters=128, kernel_size=(3, 3),
@@ -130,8 +130,8 @@ class NVAEEncoder128(Architecture):
         skip_8x8x256 = TimeDistributed(SwishLayer())(skip_8x8x256)
         skip_8x8x256 = ConvLSTM2D(filters=256, kernel_size=(3, 3), data_format='channels_last',
                                   padding='same', return_sequences=False)(skip_8x8x256)
-        mean_8x8x256 = NVAEResidualLayer(depth=256, name="mean_8x8x256")(skip_8x8x256)
-        stddev_8x8x256 = NVAEResidualLayer(depth=256, name="stddev_8x8x256")(skip_8x8x256)
+        mean_8x8x256 = SmallEncoderResidualLayer(depth=256, name="mean_8x8x256")(skip_8x8x256)
+        stddev_8x8x256 = SmallEncoderResidualLayer(depth=256, name="stddev_8x8x256")(skip_8x8x256)
 
         # 8x8x128
         net = TimeDistributed(ConvSN2D(filters=256, kernel_size=(3, 3),
@@ -150,8 +150,8 @@ class NVAEEncoder128(Architecture):
         skip_4x4x512 = TimeDistributed(SwishLayer())(skip_4x4x512)
         skip_4x4x512 = ConvLSTM2D(filters=512, kernel_size=(3, 3), data_format='channels_last',
                                   padding='same', return_sequences=False)(skip_4x4x512)
-        mean_4x4x512 = NVAEResidualLayer(depth=512, name="mean_4x4x512")(skip_4x4x512)
-        stddev_4x4x512 = NVAEResidualLayer(depth=512, name="stddev_4x4x512")(skip_4x4x512)
+        mean_4x4x512 = SmallEncoderResidualLayer(depth=512, name="mean_4x4x512")(skip_4x4x512)
+        stddev_4x4x512 = SmallEncoderResidualLayer(depth=512, name="stddev_4x4x512")(skip_4x4x512)
 
         # 4x4x256
         net = TimeDistributed(ConvSN2D(filters=512, kernel_size=(3, 3),
@@ -228,49 +228,63 @@ class NVAEDecoder128(Architecture):
         ########################
 
         # 128x128x3
-        mask_net = NVAEResidualLayer(depth=16)(mask_input)
-        mask_net = NVAEResidualLayer(depth=16)(mask_net)
+        mask_net = ConvSN2D(filters=16, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_input)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         mask_net = Dropout(self.dropout)(mask_net)
 
         # 64x64x16
-        mask_net = NVAEResidualLayer(depth=32)(mask_net)
-        mask_net = NVAEResidualLayer(depth=32)(mask_net)
+        mask_net = ConvSN2D(filters=32, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_net)
         mask64x64x32 = MaskResidualLayer(depth=32)(mask_net)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         mask_net = Dropout(self.dropout)(mask_net)
 
         # 32x32x32
-        mask_net = NVAEResidualLayer(depth=64)(mask_net)
-        mask_net = NVAEResidualLayer(depth=64)(mask_net)
+        mask_net = ConvSN2D(filters=64, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_net)
         mask32x32x64 = MaskResidualLayer(depth=64)(mask_net)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         mask_net = Dropout(self.dropout)(mask_net)
 
         # 16x16x64
-        mask_net = NVAEResidualLayer(depth=128)(mask_net)
-        mask_net = NVAEResidualLayer(depth=128)(mask_net)
+        mask_net = ConvSN2D(filters=128, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_net)
         mask16x16x128 = MaskResidualLayer(depth=128)(mask_net)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         mask_net = Dropout(self.dropout)(mask_net)
 
         # 8x8x128
-        mask_net = NVAEResidualLayer(depth=256)(mask_net)
-        mask_net = NVAEResidualLayer(depth=256)(mask_net)
+        mask_net = ConvSN2D(filters=256, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_net)
         mask8x8x256 = MaskResidualLayer(depth=256)(mask_net)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         mask_net = Dropout(self.dropout)(mask_net)
 
         # 4x4x256
-        mask_net = NVAEResidualLayer(depth=512)(mask_net)
-        mask_net = NVAEResidualLayer(depth=512)(mask_net)
+        mask_net = ConvSN2D(filters=512, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_net)
         mask4x4x512 = MaskResidualLayer(depth=512)(mask_net)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         mask_net = Dropout(self.dropout)(mask_net)
 
         # 2x2x512
-        mask_net = NVAEResidualLayer(depth=1024)(mask_net)
-        mask_net = NVAEResidualLayer(depth=1024)(mask_net)
+        mask_net = ConvSN2D(filters=1024, kernel_size=(3, 3),
+                            data_format='channels_last', padding='same')(mask_net)
+        mask_net = BatchNormalization()(mask_net)
+        mask_net = SwishLayer()(mask_net)
         mask_net = MaxPooling2D(pool_size=2)(mask_net)
         # 1x1x1024
         mask_net = Dropout(self.dropout)(mask_net)
@@ -285,8 +299,9 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=4)(stddev_4x4x512)
         previous_stddev = NVAEResidualLayer(depth=1024)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample = SampleLayer(beta=self.beta, relative=False,
-                             name="sampling_layer")([mean_input, stddev_input, epsilon])
+        sample = SampleLayer(beta=self.beta, relative=True,
+                             name="sampling_layer")([mean_input, stddev_input, epsilon,
+                                                     previous_mean, previous_stddev])
 
         ###################
         # Decoder network #
@@ -324,8 +339,9 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_8x8x256)
         previous_stddev = NVAEResidualLayer(depth=512)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_4x4x512 = SampleLayer(beta=self.beta, relative=False,
-                                     name="sample_4x4x512")([mean_4x4x512_flat, stddev_4x4x512_flat, epsilon_4x4x512])
+        sample_4x4x512 = SampleLayer(beta=self.beta, relative=True,
+                                     name="sample_4x4x512")([mean_4x4x512_flat, stddev_4x4x512_flat, epsilon_4x4x512,
+                                                             previous_mean, previous_stddev])
         sample_4x4x512 = Reshape((4, 4, 512))(sample_4x4x512)
         # 4x4x512
         net = Dropout(self.dropout)(net)
@@ -356,8 +372,9 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_16x16x128)
         previous_stddev = NVAEResidualLayer(depth=256)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_8x8x256 = SampleLayer(beta=self.beta, relative=False,
-                                     name="sample_8x8x256")([mean_8x8x256_flat, stddev_8x8x256_flat, epsilon_8x8x256])
+        sample_8x8x256 = SampleLayer(beta=self.beta, relative=True,
+                                     name="sample_8x8x256")([mean_8x8x256_flat, stddev_8x8x256_flat, epsilon_8x8x256,
+                                                             previous_mean, previous_stddev])
         sample_8x8x256 = Reshape((8, 8, 256))(sample_8x8x256)
         # 8x8x256
         net = Dropout(self.dropout)(net)
@@ -387,9 +404,10 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_32x32x64)
         previous_stddev = NVAEResidualLayer(depth=128)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_16x16x128 = SampleLayer(beta=self.beta, relative=False,
+        sample_16x16x128 = SampleLayer(beta=self.beta, relative=True,
                                        name="sample_16x16x128")(
-            [mean_16x16x128_flat, stddev_16x16x128_flat, epsilon_16x16x128])
+            [mean_16x16x128_flat, stddev_16x16x128_flat, epsilon_16x16x128,
+             previous_mean, previous_stddev])
         sample_16x16x128 = Reshape((16, 16, 128))(sample_16x16x128)
         # 16x16x256
         net = Dropout(self.dropout)(net)
@@ -420,9 +438,10 @@ class NVAEDecoder128(Architecture):
         previous_stddev = MaxPooling2D(pool_size=2)(stddev_64x64x32)
         previous_stddev = NVAEResidualLayer(depth=64)(previous_stddev)
         previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        sample_32x32x64 = SampleLayer(beta=self.beta, relative=False,
+        sample_32x32x64 = SampleLayer(beta=self.beta, relative=True,
                                       name="sample_32x32x64")(
-            [mean_32x32x64_flat, stddev_32x32x64_flat, epsilon_32x32x64])
+            [mean_32x32x64_flat, stddev_32x32x64_flat, epsilon_32x32x64,
+             previous_mean, previous_stddev])
         sample_32x32x64 = Reshape((32, 32, 64))(sample_32x32x64)
         # 32x32x128
         net = Dropout(self.dropout)(net)
