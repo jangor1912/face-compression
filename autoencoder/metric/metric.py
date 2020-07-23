@@ -9,12 +9,13 @@ from dataset.batch_generator import BatchSequence
 
 
 class FaceMetric(object):
-    def __init__(self, predictor, output_size=128):
+    def __init__(self, predictor, output_size=128, gamma=1.0):
         self.predictor = predictor
         self.size = output_size
         self.white = (255, 255, 255)
         self.gray = (128, 128, 128)
         self.middle = (192, 192, 192)
+        self.gamma = gamma
 
     @staticmethod
     def get_loss(tensor):
@@ -28,11 +29,12 @@ class FaceMetric(object):
         result = tf.reduce_mean(tf.multiply(mse_tensor, mask))
         return result
 
-    @classmethod
-    def get_loss_from_batch(cls, y_true_batch, y_pred_batch):
+    def get_loss_from_batch(self, y_true_batch, y_pred_batch):
         tensor = tf.stack([y_true_batch, y_pred_batch], axis=1)
-        result = tf.map_fn(cls.get_loss, tensor, dtype=tf.float32)
-        return tf.reduce_mean(result)
+        result = tf.map_fn(self.get_loss, tensor, dtype=tf.float32)
+        result = tf.reduce_mean(result)
+        result *= self.gamma
+        return result
 
     def generate_mask(self, face_prediction, img_height=None, img_width=None):
         img_height = img_height or self.size

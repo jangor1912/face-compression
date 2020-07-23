@@ -178,8 +178,9 @@ def train_big(train_directory, test_directory, samples_directory,
 def train_lstm(train_directory, test_directory, samples_directory,
                epochs=100,
                model=None,
-               alpha=5.0,
-               beta=5.0,
+               alpha=0.01,
+               beta=0.01,
+               gamma=10.0,
                batch_size=4):
     decoder_frames_no = 3
     encoder_frames_no = 30
@@ -195,7 +196,7 @@ def train_lstm(train_directory, test_directory, samples_directory,
     num_samples = 3  # samples to be generated each epoch
     callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
 
-    metric = FaceMetric.get_loss_from_batch
+    metric = FaceMetric(None, gamma=gamma).get_loss_from_batch
     if not model:
         auto_encoder = VariationalLSTMAutoEncoder128(batch_size=batch_size,
                                                      encoder_frames_no=encoder_frames_no,
@@ -217,8 +218,9 @@ def train_lstm(train_directory, test_directory, samples_directory,
 def train_vae(train_directory, test_directory, samples_directory,
               epochs=100,
               model=None,
-              alpha=0.2,
-              beta=0.2,
+              alpha=0.01,
+              beta=0.01,
+              gamma=10.0,
               batch_size=4,
               encoder_frames_no=30):
     encoder_frames_no = encoder_frames_no
@@ -234,7 +236,7 @@ def train_vae(train_directory, test_directory, samples_directory,
     num_samples = 3  # samples to be generated each epoch
     callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
 
-    metric = FaceMetric.get_loss_from_batch
+    metric = FaceMetric(None, gamma=gamma).get_loss_from_batch
     if not model:
         auto_encoder = NVAEAutoEncoder128(batch_size=batch_size,
                                           encoder_frames_no=encoder_frames_no,
