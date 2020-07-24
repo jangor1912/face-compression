@@ -30,7 +30,7 @@ class Architecture(object):
         self.latent_size = latent_size
         self.frames_no = frames_no
         self.real_input_shape = (self.frames_no,) + self.input_shape
-        self.dropout = 0.1
+        self.dropout = 0.4
 
         self.model = self.Build()
 

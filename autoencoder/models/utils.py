@@ -205,7 +205,7 @@ class SELayer(K.layers.Layer):
         self.depth = depth
         super(SELayer, self).__init__(**kwargs)
 
-    def squeeze_excite_block(self, input_tensor, ratio=16):
+    def squeeze_excite_block(self, input_tensor, ratio=6):
         """ Create a channel-wise squeeze-excite block
         Args:
             input_tensor: input Keras tensor

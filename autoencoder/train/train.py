@@ -2,6 +2,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
+from tensorflow.python.keras.optimizers import Adamax
 from tensorflow.python.keras.utils import OrderedEnqueuer
 
 from autoencoder.metric.metric import FaceMetric
@@ -24,7 +25,8 @@ class Training(object):
         self.epochs = epochs
 
     def train(self):
-        self.model.compile(loss=self.metric, optimizer='adam', metrics=[self.metric, "mse", "mae"])
+        optimizer = Adamax(lr=0.008)
+        self.model.compile(loss=self.metric, optimizer=optimizer, metrics=[self.metric, "mse", "mae"])
 
         # create ordered queues
         train_enqueuer = OrderedEnqueuer(self.training_sequence, use_multiprocessing=False, shuffle=True)
