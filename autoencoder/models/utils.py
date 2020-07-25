@@ -112,6 +112,53 @@ class LSTMConvBnRelu(K.Model):
             convlstm_layer.reset_states(state)
 
 
+class RelativeStddevLayer(K.layers.Layer):
+    def __init__(self, **kwargs):
+        super(RelativeStddevLayer, self).__init__(**kwargs)
+
+    def call(self, x, **kwargs):
+        stddev = x[0]
+        previous_stddev = x[1]
+
+        delta_stddev = stddev - previous_stddev
+
+        stddev = stddev * delta_stddev
+
+        return stddev
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class RelativeMeanLayer(K.layers.Layer):
+    def __init__(self, **kwargs):
+        super(RelativeMeanLayer, self).__init__(**kwargs)
+
+    def call(self, x, **kwargs):
+        mean = x[0]
+        previous_mean = x[1]
+
+        delta_mean = mean - previous_mean
+
+        mean = mean + delta_mean
+
+        return mean
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+class SimpleSamplingLayer(K.layers.Layer):
+    def call(self, x, **kwargs):
+        mean = x[0]
+        stddev = x[1]
+        epsilon = x[2]
+        return mean + K.backend.exp(stddev * 0.5) * epsilon
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0]
+
+
 class SampleLayer(K.layers.Layer):
     """
     Keras Layer to grab a random sample from a distribution (by multiplication)

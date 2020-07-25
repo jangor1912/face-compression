@@ -1,32 +1,38 @@
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow.python.keras.optimizers import Adamax
 from tensorflow.python.keras.utils import OrderedEnqueuer
+from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from autoencoder.metric.metric import FaceMetric
 from autoencoder.models.big import VariationalAutoEncoder128
 from autoencoder.models.big_lstm import VariationalLSTMAutoEncoder128
-from autoencoder.models.nvae import NVAEAutoEncoder128
+from autoencoder.models.custom_nvae import NVAEAutoEncoder128
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
 from dataset.batch_generator import BatchSequence, LSTMSequence, NVAESequence
-from diagnoser.diagnoser import ModelDiagonoser
+from callbacks.callbacks import ModelDiagonoser, KLWeightScheduler, LearningRateSchedulerPerBatch, DotDict
 
 
 class Training(object):
-    def __init__(self, model, training_sequence, validation_sequence, metric, callbacks, output_dir, epochs=100):
+    def __init__(self, model, training_sequence, validation_sequence,
+                 metric, metrics,
+                 callbacks, output_dir,
+                 epochs=100):
         self.model = model
         self.training_sequence = training_sequence
         self.validation_sequence = validation_sequence
         self.metric = metric
+        self.metrics = metrics or [self.metric, "mse", "mae"]
         self.callbacks = callbacks
         self.output_dir = output_dir
         self.epochs = epochs
 
     def train(self):
         optimizer = Adamax(lr=0.008)
-        self.model.compile(loss=self.metric, optimizer=optimizer, metrics=[self.metric, "mse", "mae"])
+        self.model.compile(loss=self.metric, optimizer=optimizer, metrics=self.metrics)
 
         # create ordered queues
         train_enqueuer = OrderedEnqueuer(self.training_sequence, use_multiprocessing=False, shuffle=True)
@@ -112,6 +118,60 @@ class Training(object):
                    y_val_loss, delimiter=",")
 
 
+def get_default_hparams():
+    """ Return default hyper-parameters """
+    params_dict = {
+        # Experiment Params:
+        'is_training': True,  # train mode (relevant only for accelerated LSTM mode)
+        'epochs': 50,  # how many times to go over the full train set (on average, since batches are drawn randomly)
+        'save_every': None,  # Batches between checkpoints creation and validation set evaluation.
+        # Once an epoch if None.
+        'batch_size': 100,  # Minibatch size. Recommend leaving at 100.
+        # Loss Params:
+        'optimizer': 'adam',  # adam or sgd
+        'learning_rate': 0.001,
+        'decay_rate': 0.9999,  # Learning rate decay per minibatch.
+        'min_learning_rate': .00001,  # Minimum learning rate.
+        'kl_tolerance': 0.2,  # Level of KL loss at which to stop optimizing for KL.
+        'kl_weight': 0.5,  # KL weight of loss equation. Recommend 0.5 or 1.0.
+        'kl_weight_start': 1e-6,  # KL start weight when annealing.
+        'kl_decay_rate': 0.99995,  # KL annealing decay rate per minibatch.
+        'grad_clip': 1.0,  # Gradient clipping. Recommend leaving at 1.0.
+        "gamma": 1.0,  # Parameter to boost face metric
+    }
+
+    return params_dict
+
+
+def get_callbacks_dict(model, model_params,
+                       test_seq, batch_size,
+                       num_samples, samples_directory):
+    """ create a dictionary of all used callbacks """
+
+    # Callbacks dictionary
+    callbacks_dict = dict()
+
+    # Checkpoints callback
+    callbacks_dict['model_checkpoint'] = ModelCheckpoint(filepath=os.path.join(samples_directory, 'checkpoints',
+                                                                               'weights.{epoch:02d}-{val_loss:.2f}.hdf5'),
+                                                         monitor='val_get_loss_from_batch',
+                                                         save_best_only=True, mode='min')
+
+    # KL loss weight decay callback, custom callback
+    callbacks_dict['kl_weight_schedule'] = KLWeightScheduler(schedule=lambda step:
+    (model_params.kl_weight - (model_params.kl_weight - model_params.kl_weight_start)
+     * model_params.kl_decay_rate ** step), kl_weight=model.kl_weight, verbose=1)
+
+    # LR decay callback, modified to apply decay each batch as in original implementation
+    callbacks_dict['lr_schedule'] = LearningRateSchedulerPerBatch(
+        lambda step: ((model_params.learning_rate - model_params.min_learning_rate) * model_params.decay_rate ** step
+                      + model_params.min_learning_rate))
+
+    callbacks_dict['model_diagnoser'] = ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)
+
+    return callbacks_dict
+
+
 def train_small(train_directory, test_directory, samples_directory, epochs=100):
     batch_size = 8
     frames_no = 8
@@ -137,6 +197,7 @@ def train_small(train_directory, test_directory, samples_directory, epochs=100):
                  training_sequence=train_seq,
                  validation_sequence=test_seq,
                  metric=metric,
+                 metrics=None,
                  callbacks=callbacks,
                  output_dir=samples_directory,
                  epochs=epochs)
@@ -171,6 +232,7 @@ def train_big(train_directory, test_directory, samples_directory,
                  training_sequence=train_seq,
                  validation_sequence=test_seq,
                  metric=metric,
+                 metrics=None,
                  callbacks=callbacks,
                  output_dir=samples_directory,
                  epochs=epochs)
@@ -211,6 +273,7 @@ def train_lstm(train_directory, test_directory, samples_directory,
                  training_sequence=train_seq,
                  validation_sequence=test_seq,
                  metric=metric,
+                 metrics=None,
                  callbacks=callbacks,
                  output_dir=samples_directory,
                  epochs=epochs)
@@ -219,12 +282,10 @@ def train_lstm(train_directory, test_directory, samples_directory,
 
 def train_vae(train_directory, test_directory, samples_directory,
               epochs=100,
-              model=None,
-              alpha=0.01,
-              beta=0.01,
-              gamma=10.0,
               batch_size=4,
-              encoder_frames_no=30):
+              encoder_frames_no=30,
+              initial_epoch=0,
+              checkpoint_path=None):
     encoder_frames_no = encoder_frames_no
     input_shape = (128, 128, 3)
 
@@ -236,20 +297,39 @@ def train_vae(train_directory, test_directory, samples_directory,
                             encoder_frames_no=encoder_frames_no)
 
     num_samples = 3  # samples to be generated each epoch
-    callbacks = [ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)]
+    model_params = DotDict(get_default_hparams())
 
-    metric = FaceMetric(None, gamma=gamma).get_loss_from_batch
-    if not model:
-        auto_encoder = NVAEAutoEncoder128(batch_size=batch_size,
-                                          encoder_frames_no=encoder_frames_no,
-                                          alpha=alpha,
-                                          beta=beta)
-        auto_encoder.summary()
-        model = auto_encoder.model
+    auto_encoder = NVAEAutoEncoder128(model_params,
+                                      batch_size=batch_size,
+                                      encoder_frames_no=encoder_frames_no)
+    auto_encoder.summary()
+    model = auto_encoder.model
+    metric = auto_encoder.model_loss
+    metrics = [auto_encoder.model_loss,
+               auto_encoder.encoder.kl_loss_face,
+               auto_encoder.decoder.kl_loss_mask,
+               "mae", "mse"]
+
+    callbacks_dict = get_callbacks_dict(model, model_params,
+                                        test_seq, batch_size,
+                                        num_samples, samples_directory)
+
+    if checkpoint_path is not None:
+        # Load weights:
+        model.load_trained_weights(checkpoint_path)
+        # Initial batch (affects LR and KL weight decay):
+        num_batches = len(train_seq)
+        count = initial_epoch * num_batches
+        callbacks_dict['lr_schedule'].count = count
+        callbacks_dict['kl_weight_schedule'].count = count
+
+    callbacks = [callback for callback in callbacks_dict.items()]
+
     t = Training(model=model,
                  training_sequence=train_seq,
                  validation_sequence=test_seq,
                  metric=metric,
+                 metrics=metrics,
                  callbacks=callbacks,
                  output_dir=samples_directory,
                  epochs=epochs)

@@ -1,12 +1,11 @@
+import copy
 import io
 import os
 
 import numpy as np
 import tensorflow as tf
-from PIL import Image
-from tensorflow.python.keras.callbacks import Callback
-# Depending on your keras version:-
-# from tensorflow.python.keras.engine.training import GeneratorEnqueuer, Sequence, OrderedEnqueuer
+import tensorflow.python.keras.backend as K
+from tensorflow.python.keras.callbacks import Callback, LearningRateScheduler
 from tensorflow.python.keras.utils import GeneratorEnqueuer, Sequence, OrderedEnqueuer
 
 from dataset.batch_generator import BatchSequence
@@ -112,3 +111,63 @@ class ModelDiagonoser(Callback):
     def on_train_end(self, logs=None):
         self.enqueuer.stop()
         self.tensorboard_writer.close()
+
+
+class KLWeightScheduler(Callback):
+    """KL weight scheduler.
+    # Arguments
+        kl_weight: The tensor withholding the current KL weight term
+        schedule: a function that takes a batch index as input
+            (integer, indexed from 0) and returns a new learning rate as output (float).
+        verbose: int. 0: quiet, 1: update messages.
+    """
+
+    def __init__(self, kl_weight, schedule, verbose=0):
+        super(KLWeightScheduler, self).__init__()
+        self.schedule = schedule
+        self.verbose = verbose
+        self.kl_weight = kl_weight
+        self.count = 0  # Global batch index (the regular batch argument refers to the batch index within the epoch)
+
+    def on_batch_begin(self, batch, logs=None):
+
+        new_kl_weight = self.schedule(self.count)
+        if not isinstance(new_kl_weight, (float, np.float32, np.float64)):
+            raise ValueError('The output of the "schedule" function '
+                             'should be float.')
+        # Set new value
+        K.set_value(self.kl_weight, new_kl_weight)
+        if self.verbose > 0 and self.count % 5 == 0:
+            print('\nBatch %05d: KLWeightScheduler setting KL weight '
+                  ' to %s.' % (self.count + 1, new_kl_weight))
+        self.count += 1
+
+
+class LearningRateSchedulerPerBatch(LearningRateScheduler):
+    """ Callback class to modify the default learning rate scheduler to operate each batch"""
+    def __init__(self, schedule, verbose=0):
+        super(LearningRateSchedulerPerBatch, self).__init__(schedule, verbose)
+        self.count = 0  # Global batch index (the regular batch argument refers to the batch index within the epoch)
+
+    def on_epoch_begin(self, epoch, logs=None):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        pass
+
+    def on_batch_begin(self, batch, logs=None):
+        super(LearningRateSchedulerPerBatch, self).on_epoch_begin(self.count, logs)
+
+    def on_batch_end(self, batch, logs=None):
+        super(LearningRateSchedulerPerBatch, self).on_epoch_end(self.count, logs)
+        self.count += 1
+
+
+class DotDict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+    def __deepcopy__(self, memo):
+        return DotDict([(copy.deepcopy(k, memo), copy.deepcopy(v, memo)) for k, v in self.items()])
