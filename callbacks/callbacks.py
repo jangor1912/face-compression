@@ -137,7 +137,7 @@ class KLWeightScheduler(Callback):
                              'should be float.')
         # Set new value
         K.set_value(self.kl_weight, new_kl_weight)
-        if self.verbose > 0 and self.count % 5 == 0:
+        if self.verbose > 0 and self.count % 20 == 0:
             print('\nBatch %05d: KLWeightScheduler setting KL weight '
                   ' to %s.' % (self.count + 1, new_kl_weight))
         self.count += 1

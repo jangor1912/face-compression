@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow.python.keras.optimizers import Adamax
 from tensorflow.python.keras.utils import OrderedEnqueuer
+import tensorflow.python.keras.backend as K
 from tensorflow.python.keras.callbacks import ModelCheckpoint
 
 from autoencoder.metric.metric import FaceMetric
@@ -20,7 +21,8 @@ class Training(object):
     def __init__(self, model, training_sequence, validation_sequence,
                  metric, metrics,
                  callbacks, output_dir,
-                 epochs=100):
+                 epochs=100,
+                 compile_model=True):
         self.model = model
         self.training_sequence = training_sequence
         self.validation_sequence = validation_sequence
@@ -29,10 +31,12 @@ class Training(object):
         self.callbacks = callbacks
         self.output_dir = output_dir
         self.epochs = epochs
+        self.compile_model = compile_model
 
     def train(self):
-        optimizer = Adamax(lr=0.008)
-        self.model.compile(loss=self.metric, optimizer=optimizer, metrics=self.metrics)
+        if self.compile_model:
+            optimizer = Adamax(lr=0.008)
+            self.model.compile(loss=self.metric, optimizer=optimizer, metrics=self.metrics)
 
         # create ordered queues
         train_enqueuer = OrderedEnqueuer(self.training_sequence, use_multiprocessing=False, shuffle=True)
@@ -134,7 +138,7 @@ def get_default_hparams():
         'min_learning_rate': .00001,  # Minimum learning rate.
         'kl_tolerance': 0.2,  # Level of KL loss at which to stop optimizing for KL.
         'kl_weight': 0.5,  # KL weight of loss equation. Recommend 0.5 or 1.0.
-        'kl_weight_start': 1e-6,  # KL start weight when annealing.
+        'kl_weight_start': 1e-10,  # KL start weight when annealing.
         'kl_decay_rate': 0.99995,  # KL annealing decay rate per minibatch.
         'grad_clip': 1.0,  # Gradient clipping. Recommend leaving at 1.0.
         "gamma": 1.0,  # Parameter to boost face metric
@@ -143,7 +147,7 @@ def get_default_hparams():
     return params_dict
 
 
-def get_callbacks_dict(model, model_params,
+def get_callbacks_dict(auto_encoder, model_params,
                        test_seq, batch_size,
                        num_samples, samples_directory):
     """ create a dictionary of all used callbacks """
@@ -158,14 +162,16 @@ def get_callbacks_dict(model, model_params,
                                                          save_best_only=True, mode='min')
 
     # KL loss weight decay callback, custom callback
-    callbacks_dict['kl_weight_schedule'] = KLWeightScheduler(schedule=lambda step:
-    (model_params.kl_weight - (model_params.kl_weight - model_params.kl_weight_start)
-     * model_params.kl_decay_rate ** step), kl_weight=model.kl_weight, verbose=1)
+    callbacks_dict['kl_weight_schedule'] = KLWeightScheduler(
+        schedule=lambda step: (model_params.kl_weight - (model_params.kl_weight - model_params.kl_weight_start) *
+                               model_params.kl_decay_rate ** step),
+        kl_weight=auto_encoder.kl_weight,
+        verbose=1)
 
     # LR decay callback, modified to apply decay each batch as in original implementation
-    callbacks_dict['lr_schedule'] = LearningRateSchedulerPerBatch(
-        lambda step: ((model_params.learning_rate - model_params.min_learning_rate) * model_params.decay_rate ** step
-                      + model_params.min_learning_rate))
+    # callbacks_dict['lr_schedule'] = LearningRateSchedulerPerBatch(
+    #     lambda step: ((model_params.learning_rate - model_params.min_learning_rate) * model_params.decay_rate ** step
+    #                   + model_params.min_learning_rate))
 
     callbacks_dict['model_diagnoser'] = ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)
 
@@ -304,13 +310,17 @@ def train_vae(train_directory, test_directory, samples_directory,
                                       encoder_frames_no=encoder_frames_no)
     auto_encoder.summary()
     model = auto_encoder.model
-    metric = auto_encoder.model_loss
-    metrics = [auto_encoder.model_loss,
-               auto_encoder.encoder.kl_loss_face,
-               auto_encoder.decoder.kl_loss_mask,
-               "mae", "mse"]
+    # metric = auto_encoder.loss_func
+    # metrics = [auto_encoder.loss_func,
+    #            auto_encoder.encoder.kl_loss_face,
+    #            auto_encoder.decoder.kl_loss_mask,
+    #            "mae", "mse"]
+    metric = auto_encoder.loss_func
+    metrics = [metric, auto_encoder.face_metric, "mae", "mse"]
+    optimizer = Adamax(lr=0.008)
+    model.compile(loss=metric, optimizer=optimizer, metrics=metrics)
 
-    callbacks_dict = get_callbacks_dict(model, model_params,
+    callbacks_dict = get_callbacks_dict(auto_encoder, model_params,
                                         test_seq, batch_size,
                                         num_samples, samples_directory)
 
@@ -323,7 +333,7 @@ def train_vae(train_directory, test_directory, samples_directory,
         callbacks_dict['lr_schedule'].count = count
         callbacks_dict['kl_weight_schedule'].count = count
 
-    callbacks = [callback for callback in callbacks_dict.items()]
+    callbacks = [callback for callback in callbacks_dict.values()]
 
     t = Training(model=model,
                  training_sequence=train_seq,
@@ -332,7 +342,8 @@ def train_vae(train_directory, test_directory, samples_directory,
                  metrics=metrics,
                  callbacks=callbacks,
                  output_dir=samples_directory,
-                 epochs=epochs)
+                 epochs=epochs,
+                 compile_model=False)
     t.train()
 
 
