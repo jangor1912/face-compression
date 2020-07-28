@@ -138,8 +138,11 @@ def get_default_hparams():
         'min_learning_rate': .00001,  # Minimum learning rate.
         'kl_tolerance': 0.2,  # Level of KL loss at which to stop optimizing for KL.
         'kl_weight': 0.5,  # KL weight of loss equation. Recommend 0.5 or 1.0.
-        'kl_weight_start': 1e-10,  # KL start weight when annealing.
-        'kl_decay_rate': 0.99995,  # KL annealing decay rate per minibatch.
+        'kl_weight_start': 1e-6,  # KL start weight when annealing.
+        'kl_decay_rate': 0.995,  # KL annealing decay rate per minibatch.
+        'mask_kl_weight': 0.5,  # KL weight of loss equation. Recommend 0.5 or 1.0.
+        'mask_kl_weight_start': 0.001,  # KL start weight when annealing.
+        'mask_kl_decay_rate': 0.95,  # KL annealing decay rate per minibatch.
         'grad_clip': 1.0,  # Gradient clipping. Recommend leaving at 1.0.
         "gamma": 1.0,  # Parameter to boost face metric
     }
@@ -156,16 +159,27 @@ def get_callbacks_dict(auto_encoder, model_params,
     callbacks_dict = dict()
 
     # Checkpoints callback
-    callbacks_dict['model_checkpoint'] = ModelCheckpoint(filepath=os.path.join(samples_directory, 'checkpoints',
-                                                                               'weights.{epoch:02d}-{val_loss:.2f}.hdf5'),
+    checkpoints_dir = Path(samples_directory, 'checkpoints')
+    checkpoints_dir.mkdir(parents=True, exist_ok=True)
+    checkpoints_file = Path(checkpoints_dir, 'weights.{epoch:02d}-{val_loss:.2f}.hdf5')
+    callbacks_dict['model_checkpoint'] = ModelCheckpoint(filepath=str(checkpoints_file),
                                                          monitor='val_get_loss_from_batch',
                                                          save_best_only=True, mode='min')
 
     # KL loss weight decay callback, custom callback
     callbacks_dict['kl_weight_schedule'] = KLWeightScheduler(
-        schedule=lambda step: (model_params.kl_weight - (model_params.kl_weight - model_params.kl_weight_start) *
+        schedule=lambda step: (model_params.kl_weight -
+                               (model_params.kl_weight - model_params.kl_weight_start) *
                                model_params.kl_decay_rate ** step),
         kl_weight=auto_encoder.kl_weight,
+        name="Face encoder KL weight",
+        verbose=1)
+    callbacks_dict['mask_kl_weight_schedule'] = KLWeightScheduler(
+        schedule=lambda step: (model_params.mask_kl_weight -
+                               (model_params.mask_kl_weight - model_params.mask_kl_weight_start) *
+                               model_params.mask_kl_decay_rate ** step),
+        kl_weight=auto_encoder.mask_kl_weight,
+        name="Mask encoder KL weight",
         verbose=1)
 
     # LR decay callback, modified to apply decay each batch as in original implementation
@@ -310,13 +324,12 @@ def train_vae(train_directory, test_directory, samples_directory,
                                       encoder_frames_no=encoder_frames_no)
     auto_encoder.summary()
     model = auto_encoder.model
-    # metric = auto_encoder.loss_func
-    # metrics = [auto_encoder.loss_func,
-    #            auto_encoder.encoder.kl_loss_face,
-    #            auto_encoder.decoder.kl_loss_mask,
-    #            "mae", "mse"]
     metric = auto_encoder.loss_func
-    metrics = [metric, auto_encoder.face_metric, "mae", "mse"]
+    metrics = [auto_encoder.loss_func,
+               auto_encoder.face_metric,
+               auto_encoder.face_kl_loss,
+               auto_encoder.mask_kl_loss,
+               "mae", "mse"]
     optimizer = Adamax(lr=0.008)
     model.compile(loss=metric, optimizer=optimizer, metrics=metrics)
 
@@ -332,6 +345,7 @@ def train_vae(train_directory, test_directory, samples_directory,
         count = initial_epoch * num_batches
         callbacks_dict['lr_schedule'].count = count
         callbacks_dict['kl_weight_schedule'].count = count
+        callbacks_dict['mask_kl_weight_schedule'].count = count
 
     callbacks = [callback for callback in callbacks_dict.values()]
 

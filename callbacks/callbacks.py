@@ -122,11 +122,12 @@ class KLWeightScheduler(Callback):
         verbose: int. 0: quiet, 1: update messages.
     """
 
-    def __init__(self, kl_weight, schedule, verbose=0):
+    def __init__(self, kl_weight, schedule, name="KL weight", verbose=0):
         super(KLWeightScheduler, self).__init__()
         self.schedule = schedule
         self.verbose = verbose
         self.kl_weight = kl_weight
+        self.name = name
         self.count = 0  # Global batch index (the regular batch argument refers to the batch index within the epoch)
 
     def on_batch_begin(self, batch, logs=None):
@@ -138,8 +139,7 @@ class KLWeightScheduler(Callback):
         # Set new value
         K.set_value(self.kl_weight, new_kl_weight)
         if self.verbose > 0 and self.count % 20 == 0:
-            print('\nBatch %05d: KLWeightScheduler setting KL weight '
-                  ' to %s.' % (self.count + 1, new_kl_weight))
+            print(f"Batch {self.count + 1}: KLWeightScheduler setting {self.name} to {new_kl_weight}.")
         self.count += 1
 
 

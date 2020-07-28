@@ -113,9 +113,6 @@ class LSTMConvBnRelu(K.Model):
 
 
 class RelativeStddevLayer(K.layers.Layer):
-    def __init__(self, **kwargs):
-        super(RelativeStddevLayer, self).__init__(**kwargs)
-
     def call(self, x, **kwargs):
         stddev = x[0]
         previous_stddev = x[1]
@@ -131,9 +128,6 @@ class RelativeStddevLayer(K.layers.Layer):
 
 
 class RelativeMeanLayer(K.layers.Layer):
-    def __init__(self, **kwargs):
-        super(RelativeMeanLayer, self).__init__(**kwargs)
-
     def call(self, x, **kwargs):
         mean = x[0]
         previous_mean = x[1]
@@ -186,6 +180,16 @@ class SampleLayer(K.layers.Layer):
         self.relative = relative
         super(SampleLayer, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'beta': self.beta,
+            'epsilon_sequence': self.epsilon_sequence,
+            'shape': self.shape,
+            'relative': self.relative
+        })
+        return config
+
     def build(self, input_shape):
         # save the shape for distribution sampling
         self.shape = input_shape[0]
@@ -232,6 +236,11 @@ class EpsilonLayer(K.layers.Layer):
         self.alpha = alpha
         super(EpsilonLayer, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'alpha': self.alpha})
+        return config
+
     def call(self, x, **kwargs):
         mean = K.backend.zeros(x.shape)
         stddev = x
@@ -251,6 +260,11 @@ class SELayer(K.layers.Layer):
     def __init__(self, depth, **kwargs):
         self.depth = depth
         super(SELayer, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'depth': self.depth})
+        return config
 
     def squeeze_excite_block(self, input_tensor, ratio=16):
         """ Create a channel-wise squeeze-excite block
@@ -316,6 +330,11 @@ class EncoderResidualLayer(K.layers.Layer):
         self.depth = depth
         super(EncoderResidualLayer, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'depth': self.depth})
+        return config
+
     def call(self, x, **kwargs):
         x = BatchNormalization()(x)
         x = TimeDistributed(SwishLayer())(x)
@@ -339,6 +358,11 @@ class SmallEncoderResidualLayer(K.layers.Layer):
         self.depth = depth
         super(SmallEncoderResidualLayer, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'depth': self.depth})
+        return config
+
     def call(self, x, **kwargs):
         x = BatchNormalization()(x)
         x = SwishLayer()(x)
@@ -357,6 +381,11 @@ class MaskResidualLayer(K.layers.Layer):
     def __init__(self, depth, **kwargs):
         self.depth = depth
         super(MaskResidualLayer, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'depth': self.depth})
+        return config
 
     def call(self, x, **kwargs):
         x = BatchNormalization()(x)
@@ -380,6 +409,11 @@ class NVAEResidualLayer(K.layers.Layer):
     def __init__(self, depth, **kwargs):
         self.depth = depth
         super(NVAEResidualLayer, self).__init__(**kwargs)
+
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'depth': self.depth})
+        return config
 
     def call(self, x, **kwargs):
         x = BatchNormalization()(x)
@@ -410,6 +444,11 @@ class SequencesToBatchesLayer(K.layers.Layer):
         super(SequencesToBatchesLayer, self).__init__(*args, **kwargs)
         self._input_shape = None
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'_input_shape': self._input_shape})
+        return config
+
     def build(self, input_shape):
         self._input_shape = input_shape
         super(SequencesToBatchesLayer, self).build(input_shape)
@@ -429,6 +468,12 @@ class BatchesToSequencesLayer(K.layers.Layer):
         self._input_shape = None
         self.previous_shape = previous_shape
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({'_input_shape': self._input_shape,
+                       'previous_shape': self.previous_shape})
+        return config
+
     def build(self, input_shape):
         self._input_shape = input_shape
         super(BatchesToSequencesLayer, self).build(input_shape)
@@ -445,7 +490,7 @@ class BatchesToSequencesLayer(K.layers.Layer):
 
 
 class DummyMaskLayer(K.layers.Layer):
-    def call(self, x):
+    def call(self, x, **kwargs):
         input_shape = x.shape
         net = tf.expand_dims(x, 1)
         to_append = tf.zeros(input_shape[1:])  # skipping batch dimension
