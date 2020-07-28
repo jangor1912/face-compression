@@ -212,28 +212,31 @@ class NVAEEncoder128(Architecture):
         net = TimeDistributed(Dropout(self.dropout))(net)
         net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
 
-        net = ConvLSTM2D(filters=512, kernel_size=(3, 3), data_format='channels_last',
-                         padding='same', return_sequences=False)(net)
-        net = BatchNormalization()(net)
-        net = SwishLayer()(net)
-        # 2x2x512
-
-        # variational encoder output (distributions)
-        mean = ConvSN2D(filters=self.latent_size, kernel_size=(1, 1),
-                        padding='same', name="mean_convolution")(net)
+        # net = ConvLSTM2D(filters=512, kernel_size=(3, 3), data_format='channels_last',
+        #                  padding='same', return_sequences=False)(net)
+        # net = BatchNormalization()(net)
+        # net = SwishLayer()(net)
+        # # 2x2x512
+        #
+        # # variational encoder output (distributions)
+        # mean = ConvSN2D(filters=self.latent_size, kernel_size=(1, 1),
+        #                 padding='same', name="mean_convolution")(net)
+        mean = EncoderResidualLayer(depth=self.latent_size, name="mean_2x2x1024")(net)
         mean = MaxPool2D(pool_size=(2, 2),
                          name="mean_max_pooling")(mean)
         mean = Flatten(name="mean_flatten")(mean)
-        mean = DenseSN(self.latent_size,
-                       name="mean")(mean)
+        # mean = DenseSN(self.latent_size,
+        #                name="mean")(mean)
         self.mean_1024 = mean
-        stddev = ConvSN2D(filters=self.latent_size, kernel_size=(1, 1),
-                          padding='same', name="stddev_convolution")(net)
+        # stddev = ConvSN2D(filters=self.latent_size, kernel_size=(1, 1),
+        #                   padding='same', name="stddev_convolution")(net)
+
+        stddev = EncoderResidualLayer(depth=self.latent_size, name="stddev_2x2x1024")(net)
         stddev = MaxPool2D(pool_size=(2, 2),
                            name="stddev_max_pooling")(stddev)
         stddev = Flatten(name="stddev_flatten")(stddev)
-        stddev = DenseSN(self.latent_size,
-                         name="stddev")(stddev)
+        # stddev = DenseSN(self.latent_size,
+        #                  name="stddev")(stddev)
         self.stddev_1024 = stddev
 
         return input_layer, [mean, stddev,
@@ -693,7 +696,8 @@ class NVAEAutoEncoder128(Architecture):
          Considers the tolerance value for which optimization for KL should stop """
         # kullback Leibler loss between normal distributions
         kl_cost = -0.5 * K.mean(1.0 + sigma - K.square(mu) - K.exp(sigma))
-        return K.maximum(kl_cost, self.hps['kl_tolerance'])
+        # return K.maximum(kl_cost, self.hps['kl_tolerance'])
+        return kl_cost
 
     def mask_kl_loss(self, *args, **kwargs):
         return self.calculate_kl_loss(K.zeros(self.mask_1024.shape), self.mask_1024) + \

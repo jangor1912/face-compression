@@ -138,11 +138,11 @@ def get_default_hparams():
         'min_learning_rate': .00001,  # Minimum learning rate.
         'kl_tolerance': 0.2,  # Level of KL loss at which to stop optimizing for KL.
         'kl_weight': 0.5,  # KL weight of loss equation. Recommend 0.5 or 1.0.
-        'kl_weight_start': 1e-6,  # KL start weight when annealing.
-        'kl_decay_rate': 0.995,  # KL annealing decay rate per minibatch.
+        'kl_weight_start': 1e-4,  # KL start weight when annealing.
+        'kl_decay_rate': 0.9995,  # KL annealing decay rate per minibatch.
         'mask_kl_weight': 0.5,  # KL weight of loss equation. Recommend 0.5 or 1.0.
         'mask_kl_weight_start': 0.001,  # KL start weight when annealing.
-        'mask_kl_decay_rate': 0.95,  # KL annealing decay rate per minibatch.
+        'mask_kl_decay_rate': 0.995,  # KL annealing decay rate per minibatch.
         'grad_clip': 1.0,  # Gradient clipping. Recommend leaving at 1.0.
         "gamma": 1.0,  # Parameter to boost face metric
     }
