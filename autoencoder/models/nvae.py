@@ -550,7 +550,7 @@ class NVAEDecoder128(Architecture):
 
         # decode distribution
         decoded_128x128x16 = ConvSN2DTranspose(16, (3, 3), strides=(2, 2), padding='same')(net)
-        decoded_128x128x16 = concatenate([skip_16x16x128, decoded_128x128x16])
+        decoded_128x128x16 = concatenate([skip_128x128x16, decoded_128x128x16])
         mean_128x128x16 = NVAEResidualLayer(16)(decoded_128x128x16)
         stddev_128x128x16 = NVAEResidualLayer(16)(decoded_128x128x16)
         # count delta
@@ -575,7 +575,7 @@ class NVAEDecoder128(Architecture):
         # 64x64x32
         net = ConvSN2DTranspose(16, (3, 3), strides=(2, 2), padding='same')(net)
         # concatenate sample from distribution with normal layer
-        net = concatenate([net, sample_64x64x32])
+        net = concatenate([net, sample_128x128x16])
         # 128x128x32
         net = Dropout(self.dropout)(net)
         net = ConvSN2D(filters=16, kernel_size=3, use_bias=False,

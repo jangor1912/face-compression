@@ -11,7 +11,8 @@ from tensorflow.python.keras.callbacks import ModelCheckpoint
 from autoencoder.metric.metric import FaceMetric
 from autoencoder.models.big import VariationalAutoEncoder128
 from autoencoder.models.big_lstm import VariationalLSTMAutoEncoder128
-from autoencoder.models.custom_nvae import NVAEAutoEncoder128
+from autoencoder.models.nvae import NVAEAutoEncoder128
+from autoencoder.models.custom_nvae import NVAEAutoEncoder128 as CustomNVAEAutoEncoder128
 from autoencoder.models.small import VariationalAutoEncoder, LSTMEncoder32, LSTMDecoder32
 from dataset.batch_generator import BatchSequence, LSTMSequence, NVAESequence
 from callbacks.callbacks import ModelDiagonoser, KLWeightScheduler, LearningRateSchedulerPerBatch, DotDict
@@ -318,10 +319,75 @@ def train_vae(train_directory, test_directory, samples_directory,
 
     num_samples = 3  # samples to be generated each epoch
     model_params = DotDict(get_default_hparams())
+    model_params.kl_weight_start = 1e-6
+    model_params.kl_decay_rate = 0.9999995
+    model_params.mask_kl_weight_start = 1e-4
+    model_params.mask_kl_decay_rate = 0.99995
 
     auto_encoder = NVAEAutoEncoder128(model_params,
                                       batch_size=batch_size,
                                       encoder_frames_no=encoder_frames_no)
+    auto_encoder.summary()
+    model = auto_encoder.model
+    metric = auto_encoder.loss_func
+    metrics = [auto_encoder.loss_func,
+               auto_encoder.face_metric,
+               auto_encoder.face_kl_loss,
+               auto_encoder.mask_kl_loss,
+               "mae", "mse"]
+    optimizer = Adamax(lr=0.008)
+    model.compile(loss=metric, optimizer=optimizer, metrics=metrics)
+
+    callbacks_dict = get_callbacks_dict(auto_encoder, model_params,
+                                        test_seq, batch_size,
+                                        num_samples, samples_directory)
+
+    if checkpoint_path is not None:
+        # Load weights:
+        model.load_trained_weights(checkpoint_path)
+        # Initial batch (affects LR and KL weight decay):
+        num_batches = len(train_seq)
+        count = initial_epoch * num_batches
+        callbacks_dict['lr_schedule'].count = count
+        callbacks_dict['kl_weight_schedule'].count = count
+        callbacks_dict['mask_kl_weight_schedule'].count = count
+
+    callbacks = [callback for callback in callbacks_dict.values()]
+
+    t = Training(model=model,
+                 training_sequence=train_seq,
+                 validation_sequence=test_seq,
+                 metric=metric,
+                 metrics=metrics,
+                 callbacks=callbacks,
+                 output_dir=samples_directory,
+                 epochs=epochs,
+                 compile_model=False)
+    t.train()
+
+
+def train_custom_vae(train_directory, test_directory, samples_directory,
+                     epochs=100,
+                     batch_size=4,
+                     encoder_frames_no=30,
+                     initial_epoch=0,
+                     checkpoint_path=None):
+    encoder_frames_no = encoder_frames_no
+    input_shape = (128, 128, 3)
+
+    train_seq = NVAESequence(train_directory, input_size=input_shape[:-1],
+                             batch_size=batch_size,
+                             encoder_frames_no=encoder_frames_no)
+    test_seq = NVAESequence(test_directory, input_size=input_shape[:-1],
+                            batch_size=batch_size,
+                            encoder_frames_no=encoder_frames_no)
+
+    num_samples = 3  # samples to be generated each epoch
+    model_params = DotDict(get_default_hparams())
+
+    auto_encoder = CustomNVAEAutoEncoder128(model_params,
+                                            batch_size=batch_size,
+                                            encoder_frames_no=encoder_frames_no)
     auto_encoder.summary()
     model = auto_encoder.model
     metric = auto_encoder.loss_func
