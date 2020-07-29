@@ -680,12 +680,12 @@ class NVAEAutoEncoder128(Architecture):
         self.stddev_64x64x32 = encoder_output[11]
 
         mask_encoder_output = self.mask_encoder_model(mask_input)
-        self.mask_1024 = encoder_output[0]
-        self.mask4x4x512 = encoder_output[1]
-        self.mask8x8x256 = encoder_output[2]
-        self.mask16x16x128 = encoder_output[3]
-        self.mask32x32x64 = encoder_output[4]
-        self.mask64x64x32 = encoder_output[5]
+        self.mask_1024 = mask_encoder_output[0]
+        self.mask4x4x512 = mask_encoder_output[1]
+        self.mask8x8x256 = mask_encoder_output[2]
+        self.mask16x16x128 = mask_encoder_output[3]
+        self.mask32x32x64 = mask_encoder_output[4]
+        self.mask64x64x32 = mask_encoder_output[5]
 
         decoder_output = self.decoder_model(encoder_output + mask_encoder_output)
         net = DummyMaskLayer()(decoder_output)
