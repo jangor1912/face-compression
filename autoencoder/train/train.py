@@ -23,7 +23,8 @@ class Training(object):
                  metric, metrics,
                  callbacks, output_dir,
                  epochs=100,
-                 compile_model=True):
+                 compile_model=True,
+                 initial_epoch=0):
         self.model = model
         self.training_sequence = training_sequence
         self.validation_sequence = validation_sequence
@@ -33,6 +34,7 @@ class Training(object):
         self.output_dir = output_dir
         self.epochs = epochs
         self.compile_model = compile_model
+        self.initial_epoch = initial_epoch
 
     def train(self):
         if self.compile_model:
@@ -53,10 +55,11 @@ class Training(object):
                                            verbose=2,
                                            steps_per_epoch=len(self.training_sequence),
                                            validation_steps=len(self.validation_sequence),
-                                           callbacks=self.callbacks)
+                                           callbacks=self.callbacks,
+                                           initial_epoch=self.initial_epoch)
         # plot metrics
         self.plot_results(history, self.output_dir)
-        self.model.save_weights(str(Path(self.output_dir, 'model.h5')))
+        self.model.save_weights(str(Path(self.output_dir, 'final_weights')))
 
     @staticmethod
     def plot_results(history, output_path):
@@ -134,7 +137,7 @@ def get_default_hparams():
         'batch_size': 100,  # Minibatch size. Recommend leaving at 100.
         # Loss Params:
         'optimizer': 'adam',  # adam or sgd
-        'learning_rate': 0.001,
+        'learning_rate': 0.008,
         'decay_rate': 0.9999,  # Learning rate decay per minibatch.
         'min_learning_rate': .00001,  # Minimum learning rate.
         'kl_tolerance': 0.2,  # Level of KL loss at which to stop optimizing for KL.
@@ -184,9 +187,9 @@ def get_callbacks_dict(auto_encoder, model_params,
         verbose=1)
 
     # LR decay callback, modified to apply decay each batch as in original implementation
-    # callbacks_dict['lr_schedule'] = LearningRateSchedulerPerBatch(
-    #     lambda step: ((model_params.learning_rate - model_params.min_learning_rate) * model_params.decay_rate ** step
-    #                   + model_params.min_learning_rate))
+    callbacks_dict['lr_schedule'] = LearningRateSchedulerPerBatch(
+        lambda step: ((model_params.learning_rate - model_params.min_learning_rate) * model_params.decay_rate ** step
+                      + model_params.min_learning_rate))
 
     callbacks_dict['model_diagnoser'] = ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)
 
@@ -394,9 +397,9 @@ def train_custom_vae(train_directory, test_directory, samples_directory,
     metrics = [auto_encoder.loss_func,
                auto_encoder.face_metric,
                auto_encoder.face_kl_loss,
-               auto_encoder.mask_kl_loss,
+               auto_encoder.mask_mse_loss,
                "mae", "mse"]
-    optimizer = Adamax(lr=0.008)
+    optimizer = Adamax(auto_encoder.hps.learning_rate)
     model.compile(loss=metric, optimizer=optimizer, metrics=metrics)
 
     callbacks_dict = get_callbacks_dict(auto_encoder, model_params,
@@ -405,7 +408,8 @@ def train_custom_vae(train_directory, test_directory, samples_directory,
 
     if checkpoint_path is not None:
         # Load weights:
-        model.load_trained_weights(checkpoint_path)
+        load_status = model.load_weights(checkpoint_path)
+        load_status.assert_consumed()
         # Initial batch (affects LR and KL weight decay):
         num_batches = len(train_seq)
         count = initial_epoch * num_batches
@@ -423,7 +427,8 @@ def train_custom_vae(train_directory, test_directory, samples_directory,
                  callbacks=callbacks,
                  output_dir=samples_directory,
                  epochs=epochs,
-                 compile_model=False)
+                 compile_model=False,
+                 initial_epoch=initial_epoch)
     t.train()
 
 

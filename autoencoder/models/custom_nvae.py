@@ -691,7 +691,8 @@ class NVAEAutoEncoder128(Architecture):
         net = DummyMaskLayer()(decoder_output)
         return Model(inputs=[sequence_input, mask_input], outputs=net)
 
-    def calculate_kl_loss(self, mu, sigma):
+    @staticmethod
+    def calculate_kl_loss(mu, sigma):
         """ Function to calculate the KL loss term.
          Considers the tolerance value for which optimization for KL should stop """
         # kullback Leibler loss between normal distributions
@@ -699,13 +700,17 @@ class NVAEAutoEncoder128(Architecture):
         # return K.maximum(kl_cost, self.hps['kl_tolerance'])
         return kl_cost
 
-    def mask_kl_loss(self, *args, **kwargs):
-        return self.calculate_kl_loss(K.zeros(self.mask_1024.shape), self.mask_1024) + \
-               self.calculate_kl_loss(K.zeros(self.mask4x4x512.shape), self.mask4x4x512) + \
-               self.calculate_kl_loss(K.zeros(self.mask8x8x256.shape), self.mask8x8x256) + \
-               self.calculate_kl_loss(K.zeros(self.mask16x16x128.shape), self.mask16x16x128) + \
-               self.calculate_kl_loss(K.zeros(self.mask32x32x64.shape), self.mask32x32x64) + \
-               self.calculate_kl_loss(K.zeros(self.mask64x64x32.shape), self.mask64x64x32)
+    @staticmethod
+    def calculate_mse(tensor1, tensor2):
+        return K.mean(K.square(tensor1 - tensor2))
+
+    def mask_mse_loss(self, *args, **kwargs):
+        return self.calculate_mse(K.zeros(self.mask_1024.shape), self.mask_1024) + \
+               self.calculate_mse(K.zeros(self.mask4x4x512.shape), self.mask4x4x512) + \
+               self.calculate_mse(K.zeros(self.mask8x8x256.shape), self.mask8x8x256) + \
+               self.calculate_mse(K.zeros(self.mask16x16x128.shape), self.mask16x16x128) + \
+               self.calculate_mse(K.zeros(self.mask32x32x64.shape), self.mask32x32x64) + \
+               self.calculate_mse(K.zeros(self.mask64x64x32.shape), self.mask64x64x32)
 
     def face_kl_loss(self, *args, **kwargs):
         return self.calculate_kl_loss(self.mean, self.stddev) +\
@@ -720,7 +725,7 @@ class NVAEAutoEncoder128(Architecture):
          Returns a *function* which calculates the complete loss given only the input and target output """
         # KL loss
         face_encoder_kl_loss = self.face_kl_loss
-        mask_encoder_kl_loss = self.mask_kl_loss
+        mask_encoder_mse_loss = self.mask_mse_loss
         # Reconstruction loss
         md_loss_func = self.face_metric
 
@@ -733,7 +738,7 @@ class NVAEAutoEncoder128(Architecture):
             # Reconstruction loss
             md_loss = md_loss_func(y_true, y_pred)
             # Full loss
-            result_loss = mask_kl_weight * mask_encoder_kl_loss() + kl_weight * face_encoder_kl_loss() + md_loss
+            result_loss = mask_kl_weight * mask_encoder_mse_loss() + kl_weight * face_encoder_kl_loss() + md_loss
             return result_loss
 
         return _model_loss
