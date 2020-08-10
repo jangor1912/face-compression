@@ -7,8 +7,8 @@ from tensorflow.python.keras.layers import BatchNormalization, Dropout, \
 
 from autoencoder.metric.metric import FaceMetric
 from autoencoder.models.spectral_norm import ConvSN2D, ConvSN2DTranspose
-from autoencoder.models.utils import DummyMaskLayer, EncoderResidualLayer, MaskResidualLayer, SwishLayer, \
-    SimpleSamplingLayer
+from autoencoder.models.utils import DummyMaskLayer, EncoderResidualLayer, MaskResidualLayer, RelativeMeanLayer, \
+    RelativeStddevLayer, SimpleSamplingLayer, SwishLayer
 
 
 class Architecture(object):
@@ -102,10 +102,16 @@ class NVAEEncoder128(Architecture):
                                        padding='same'))(net)
 
         # skip connection
+        previous_mean = MaxPooling2D()(self.mean_128x128x16)
+        previous_mean = ConvSN2D(filters=32, kernel_size=(3, 3),
+                                 data_format='channels_last', padding='same')(previous_mean)
         mean_64x64x32 = EncoderResidualLayer(depth=32, name="mean_64x64x32")(net)
-        self.mean_64x64x32 = mean_64x64x32
+        self.mean_64x64x32 = RelativeMeanLayer()([mean_64x64x32, previous_mean])
+        previous_stddev = MaxPooling2D()(self.stddev_128x128x16)
+        previous_stddev = ConvSN2D(filters=32, kernel_size=(3, 3),
+                                   data_format='channels_last', padding='same')(previous_stddev)
         stddev_64x64x32 = EncoderResidualLayer(depth=32, name="stddev_64x64x32")(net)
-        self.stddev_64x64x32 = stddev_64x64x32
+        self.stddev_64x64x32 = RelativeStddevLayer()([stddev_64x64x32, previous_stddev])
 
         net = BatchNormalization()(net)
         net = TimeDistributed(SwishLayer())(net)
@@ -122,10 +128,16 @@ class NVAEEncoder128(Architecture):
                                        data_format='channels_last', padding='same'))(net)
 
         # skip connection
+        previous_mean = MaxPooling2D()(self.mean_64x64x32)
+        previous_mean = ConvSN2D(filters=64, kernel_size=(3, 3),
+                                 data_format='channels_last', padding='same')(previous_mean)
         mean_32x32x64 = EncoderResidualLayer(depth=64, name="mean_32x32x64")(net)
-        self.mean_32x32x64 = mean_32x32x64
+        self.mean_32x32x64 = RelativeMeanLayer()([mean_32x32x64, previous_mean])
+        previous_stddev = MaxPooling2D()(self.stddev_64x64x32)
+        previous_stddev = ConvSN2D(filters=64, kernel_size=(3, 3),
+                                   data_format='channels_last', padding='same')(previous_stddev)
         stddev_32x32x64 = EncoderResidualLayer(depth=64, name="stddev_32x32x64")(net)
-        self.stddev_32x32x64 = stddev_32x32x64
+        self.stddev_32x32x64 = RelativeStddevLayer()([stddev_32x32x64, previous_stddev])
 
         net = BatchNormalization()(net)
         net = TimeDistributed(SwishLayer())(net)
@@ -141,10 +153,16 @@ class NVAEEncoder128(Architecture):
                                        data_format='channels_last', padding='same'))(net)
 
         # skip connection
+        previous_mean = MaxPooling2D()(self.mean_32x32x64)
+        previous_mean = ConvSN2D(filters=128, kernel_size=(3, 3),
+                                 data_format='channels_last', padding='same')(previous_mean)
         mean_16x16x128 = EncoderResidualLayer(depth=128, name="mean_16x16x128")(net)
-        self.mean_16x16x128 = mean_16x16x128
+        self.mean_16x16x128 = RelativeMeanLayer()([mean_16x16x128, previous_mean])
+        previous_stddev = MaxPooling2D()(self.stddev_32x32x64)
+        previous_stddev = ConvSN2D(filters=128, kernel_size=(3, 3),
+                                   data_format='channels_last', padding='same')(previous_stddev)
         stddev_16x16x128 = EncoderResidualLayer(depth=128, name="stddev_16x16x128")(net)
-        self.stddev_16x16x128 = stddev_16x16x128
+        self.stddev_16x16x128 = RelativeStddevLayer()([stddev_16x16x128, previous_stddev])
 
         net = BatchNormalization()(net)
         net = TimeDistributed(SwishLayer())(net)
@@ -160,10 +178,16 @@ class NVAEEncoder128(Architecture):
                                        data_format='channels_last', padding='same'))(net)
 
         # skip connection
+        previous_mean = MaxPooling2D()(self.mean_16x16x128)
+        previous_mean = ConvSN2D(filters=256, kernel_size=(3, 3),
+                                 data_format='channels_last', padding='same')(previous_mean)
         mean_8x8x256 = EncoderResidualLayer(depth=256, name="mean_8x8x256")(net)
-        self.mean_8x8x256 = mean_8x8x256
+        self.mean_8x8x256 = RelativeMeanLayer()([mean_8x8x256, previous_mean])
+        previous_stddev = MaxPooling2D()(self.stddev_16x16x128)
+        previous_stddev = ConvSN2D(filters=256, kernel_size=(3, 3),
+                                   data_format='channels_last', padding='same')(previous_stddev)
         stddev_8x8x256 = EncoderResidualLayer(depth=256, name="stddev_8x8x256")(net)
-        self.stddev_8x8x256 = stddev_8x8x256
+        self.stddev_8x8x256 = RelativeStddevLayer()([stddev_8x8x256, previous_stddev])
 
         net = BatchNormalization()(net)
         net = TimeDistributed(SwishLayer())(net)
@@ -179,57 +203,16 @@ class NVAEEncoder128(Architecture):
                                        data_format='channels_last', padding='same'))(net)
 
         # skip connection
+        previous_mean = MaxPooling2D()(self.mean_8x8x256)
+        previous_mean = ConvSN2D(filters=512, kernel_size=(3, 3),
+                                 data_format='channels_last', padding='same')(previous_mean)
         mean_4x4x512 = EncoderResidualLayer(depth=512, name="mean_4x4x512")(net)
-        self.mean_4x4x512 = mean_4x4x512
+        self.mean_4x4x512 = RelativeMeanLayer()([mean_4x4x512, previous_mean])
+        previous_stddev = MaxPooling2D()(self.stddev_8x8x256)
+        previous_stddev = ConvSN2D(filters=512, kernel_size=(3, 3),
+                                   data_format='channels_last', padding='same')(previous_stddev)
         stddev_4x4x512 = EncoderResidualLayer(depth=512, name="stddev_4x4x512")(net)
-        self.stddev_4x4x512 = stddev_4x4x512
-
-        # net = BatchNormalization()(net)
-        # net = TimeDistributed(SwishLayer())(net)
-        # net = TimeDistributed(Dropout(self.dropout))(net)
-        # net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
-        #
-        # # 2x2x512
-        # net = TimeDistributed(ConvSN2D(filters=1024, kernel_size=(3, 3),
-        #                                data_format='channels_last', padding='same'))(net)
-        # net = BatchNormalization()(net)
-        # net = TimeDistributed(SwishLayer())(net)
-        # net = TimeDistributed(ConvSN2D(filters=1024, kernel_size=(3, 3),
-        #                                data_format='channels_last', padding='same'))(net)
-        #
-        # # skip connection
-        # mean_2x2x1024 = EncoderResidualLayer(depth=1024, name="mean_2x2x1024")(net)
-        # self.mean_2x2x1024 = mean_2x2x1024
-        # stddev_2x2x1024 = EncoderResidualLayer(depth=1024, name="stddev_2x2x1024")(net)
-        # self.stddev_2x2x1024 = stddev_2x2x1024
-        #
-        # net = BatchNormalization()(net)
-        # net = TimeDistributed(SwishLayer())(net)
-        # net = TimeDistributed(Dropout(self.dropout))(net)
-        # net = TimeDistributed(MaxPooling2D(pool_size=(2, 2)))(net)
-        #
-        # # 1x1x2048
-        # net = TimeDistributed(ConvSN2D(filters=2048, kernel_size=(3, 3),
-        #                                data_format='channels_last', padding='same'))(net)
-        # net = BatchNormalization()(net)
-        # net = TimeDistributed(SwishLayer())(net)
-        # net = TimeDistributed(ConvSN2D(filters=2048, kernel_size=(3, 3),
-        #                                data_format='channels_last', padding='same'))(net)
-        #
-        # # skip connection
-        # mean_1x1x2048 = EncoderResidualLayer(depth=2048, name="mean_1x1x2048")(net)
-        # self.mean_1x1x2048 = mean_1x1x2048
-        # stddev_1x1x2048 = EncoderResidualLayer(depth=2048, name="stddev_1x1x2048")(net)
-        # self.stddev_1x1x2048 = stddev_1x1x2048
-
-        # return input_layer, [self.mean_1x1x2048, self.stddev_1x1x2048,
-        #                      self.mean_2x2x1024, self.stddev_2x2x1024,
-        #                      self.mean_4x4x512, self.stddev_4x4x512,
-        #                      self.mean_8x8x256, self.stddev_8x8x256,
-        #                      self.mean_16x16x128, self.stddev_16x16x128,
-        #                      self.mean_32x32x64, self.stddev_32x32x64,
-        #                      self.mean_64x64x32, self.stddev_64x64x32,
-        #                      self.mean_128x128x16, self.stddev_128x128x16]
+        self.stddev_4x4x512 = RelativeStddevLayer()([stddev_4x4x512, previous_stddev])
 
         return input_layer, [self.mean_4x4x512, self.stddev_4x4x512,
                              self.mean_8x8x256, self.stddev_8x8x256,
@@ -315,31 +298,6 @@ class MaskEncoder128(Architecture):
         mask_net = ConvSN2D(filters=512, kernel_size=(3, 3),
                             data_format='channels_last', padding='same')(mask_net)
         self.mask4x4x512 = MaskResidualLayer(depth=512)(mask_net)
-        # mask_net = BatchNormalization()(mask_net)
-        # mask_net = SwishLayer()(mask_net)
-        # mask_net = MaxPooling2D(pool_size=2)(mask_net)
-        # mask_net = Dropout(self.dropout)(mask_net)
-
-        # 2x2x512
-        # mask_net = ConvSN2D(filters=1024, kernel_size=(3, 3),
-        #                     data_format='channels_last', padding='same')(mask_net)
-        # self.mask2x2x1024 = MaskResidualLayer(depth=1024)(mask_net)
-        # mask_net = BatchNormalization()(mask_net)
-        # mask_net = SwishLayer()(mask_net)
-        # mask_net = MaxPooling2D(pool_size=2)(mask_net)
-        # # 1x1x1024
-        # mask_net = ConvSN2D(filters=2048, kernel_size=(3, 3),
-        #                     data_format='channels_last', padding='same')(mask_net)
-        # self.mask1x1x2048 = MaskResidualLayer(depth=2048)(mask_net)
-
-        # return mask_input, [self.mask1x1x2048,
-        #                     self.mask2x2x1024,
-        #                     self.mask4x4x512,
-        #                     self.mask8x8x256,
-        #                     self.mask16x16x128,
-        #                     self.mask32x32x64,
-        #                     self.mask64x64x32,
-        #                     self.mask128x128x16]
 
         return mask_input, [self.mask4x4x512,
                             self.mask8x8x256,
@@ -363,10 +321,6 @@ class NVAEDecoder128(Architecture):
 
     def layers(self):
         # Face encoder inputs
-        # mean_1x1x2048 = Input((1, 1, 2048), self.batch_size, name="mean_1x1x2048")
-        # stddev_1x1x2048 = Input((1, 1, 2048), self.batch_size, name="stddev_1x1x2048")
-        # mean_2x2x1024 = Input((2, 2, 1024), self.batch_size, name="mean_2x2x1024")
-        # stddev_2x2x1024 = Input((2, 2, 1024), self.batch_size, name="stddev_2x2x1024")
         mean_4x4x512 = Input((4, 4, 512), self.batch_size, name="mean_4x4x512")
         stddev_4x4x512 = Input((4, 4, 512), self.batch_size, name="stddev_4x4x512")
         mean_8x8x256 = Input((8, 8, 256), self.batch_size, name="mean_8x8x256")
@@ -393,58 +347,11 @@ class NVAEDecoder128(Architecture):
         ###################
         # Decoder network #
         ###################
-        # sampling
-        # mean_1x1x2048_flat = Flatten(data_format='channels_last')(mean_1x1x2048)
-        # stddev_1x1x2048_flat = Flatten(data_format='channels_last')(stddev_1x1x2048)
-        # mask1x1x2048_flat = Flatten(data_format='channels_last', name="mask1x1x2048_flat")(mask1x1x2048)
-        # sample_1x1x2048_flat = SimpleSamplingLayer()([mean_1x1x2048_flat, stddev_1x1x2048_flat, mask1x1x2048_flat])
-        # sample_1x1x2048 = Reshape((1, 1, 2048))(sample_1x1x2048_flat)
-        #
-        # # 1x1x2048
-        # net = ConvSN2D(filters=2048, kernel_size=3, use_bias=False,
-        #                data_format='channels_last', padding='same')(sample_1x1x2048)
-        # net = BatchNormalization()(net)
-        # net = SwishLayer()(net)
-        #
-        # net = ConvSN2DTranspose(1024, (3, 3), strides=(2, 2), padding='same')(net)
-        # # 2x2x1024
-        # # sampling
-        # mean_2x2x1024_flat = Flatten(data_format='channels_last')(mean_2x2x1024)
-        # stddev_2x2x1024_flat = Flatten(data_format='channels_last')(stddev_2x2x1024)
-        # mask2x2x1024_flat = Flatten(data_format='channels_last')(mask2x2x1024)
-        # sample_2x2x1024 = SimpleSamplingLayer()([mean_2x2x1024_flat, stddev_2x2x1024_flat, mask2x2x1024_flat])
-        # sample_2x2x1024 = Reshape((2, 2, 1024))(sample_2x2x1024)
-        # # 2x2x1024
-        # net = Dropout(self.dropout)(net)
-        # net = ConvSN2D(filters=1024, kernel_size=3, use_bias=False,
-        #                data_format='channels_last', padding='same')(net)
-        # net = BatchNormalization()(net)
-        # net = SwishLayer()(net)
-        # # 2x2x1024
-        # net = concatenate([net, sample_2x2x1024])
-        # net = Dropout(self.dropout)(net)
-        # net = ConvSN2D(filters=1024, kernel_size=3, use_bias=False,
-        #                data_format='channels_last', padding='same')(net)
-        # net = BatchNormalization()(net)
-        # net = SwishLayer()(net)
-        #
-        # # 2x2x1024
-        # net = ConvSN2DTranspose(512, (3, 3), strides=(2, 2), padding='same')(net)
-        # 4x4x512
 
         # sampling
         mean_4x4x512_flat = Flatten(data_format='channels_last')(mean_4x4x512)
         stddev_4x4x512_flat = Flatten(data_format='channels_last')(stddev_4x4x512)
         mask4x4x512_flat = Flatten(data_format='channels_last', name="mask4x4x512_flat")(mask4x4x512)
-        # previous_mean = MaxPooling2D(pool_size=2)(mean_8x8x256)
-        # previous_mean = NVAEResidualLayer(depth=512)(previous_mean)
-        # previous_mean = Flatten(data_format='channels_last')(previous_mean)
-        # previous_stddev = MaxPooling2D(pool_size=2)(stddev_8x8x256)
-        # previous_stddev = NVAEResidualLayer(depth=512)(previous_stddev)
-        # previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        # self.mean_4x4x512 = RelativeMeanLayer()([mean_4x4x512_flat, previous_mean])
-        # self.stddev_4x4x512 = RelativeStddevLayer()([stddev_4x4x512_flat, previous_stddev])
-        # sample_4x4x512 = SimpleSamplingLayer()([self.mean_4x4x512, self.stddev_4x4x512, mask4x4x512_flat])
         sample_4x4x512 = SimpleSamplingLayer()([mean_4x4x512_flat, stddev_4x4x512_flat, mask4x4x512_flat])
         sample_4x4x512 = Reshape((4, 4, 512))(sample_4x4x512)
         # 4x4x512
@@ -469,15 +376,6 @@ class NVAEDecoder128(Architecture):
         mean_8x8x256_flat = Flatten(data_format='channels_last')(mean_8x8x256)
         stddev_8x8x256_flat = Flatten(data_format='channels_last')(stddev_8x8x256)
         mask8x8x256_flat = Flatten(data_format='channels_last')(mask8x8x256)
-        # previous_mean = MaxPooling2D(pool_size=2)(mean_16x16x128)
-        # previous_mean = NVAEResidualLayer(depth=256)(previous_mean)
-        # previous_mean = Flatten(data_format='channels_last')(previous_mean)
-        # previous_stddev = MaxPooling2D(pool_size=2)(stddev_16x16x128)
-        # previous_stddev = NVAEResidualLayer(depth=256)(previous_stddev)
-        # previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        # self.mean_8x8x256 = RelativeMeanLayer()([mean_8x8x256_flat, previous_mean])
-        # self.stddev_8x8x256 = RelativeStddevLayer()([stddev_8x8x256_flat, previous_stddev])
-        # sample_8x8x256 = SimpleSamplingLayer()([self.mean_8x8x256, self.stddev_8x8x256, mask8x8x256_flat])
         sample_8x8x256 = SimpleSamplingLayer()([mean_8x8x256_flat, stddev_8x8x256_flat, mask8x8x256_flat])
         sample_8x8x256 = Reshape((8, 8, 256))(sample_8x8x256)
         # 8x8x256
@@ -501,15 +399,6 @@ class NVAEDecoder128(Architecture):
         mean_16x16x128_flat = Flatten(data_format='channels_last')(mean_16x16x128)
         stddev_16x16x128_flat = Flatten(data_format='channels_last')(stddev_16x16x128)
         mask16x16x128_flat = Flatten(data_format='channels_last')(mask16x16x128)
-        # previous_mean = MaxPooling2D(pool_size=2)(mean_32x32x64)
-        # previous_mean = NVAEResidualLayer(depth=128)(previous_mean)
-        # previous_mean = Flatten(data_format='channels_last')(previous_mean)
-        # previous_stddev = MaxPooling2D(pool_size=2)(stddev_32x32x64)
-        # previous_stddev = NVAEResidualLayer(depth=128)(previous_stddev)
-        # previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        # self.mean_16x16x128 = RelativeMeanLayer()([mean_16x16x128_flat, previous_mean])
-        # self.stddev_16x16x128 = RelativeStddevLayer()([stddev_16x16x128_flat, previous_stddev])
-        # sample_16x16x128 = SimpleSamplingLayer()([self.mean_16x16x128, self.stddev_16x16x128, mask16x16x128_flat])
         sample_16x16x128 = SimpleSamplingLayer()([mean_16x16x128_flat, stddev_16x16x128_flat, mask16x16x128_flat])
         sample_16x16x128 = Reshape((16, 16, 128))(sample_16x16x128)
         # 16x16x256
@@ -534,15 +423,6 @@ class NVAEDecoder128(Architecture):
         mean_32x32x64_flat = Flatten(data_format='channels_last')(mean_32x32x64)
         stddev_32x32x64_flat = Flatten(data_format='channels_last')(stddev_32x32x64)
         mask32x32x64_flat = Flatten(data_format='channels_last')(mask32x32x64)
-        # previous_mean = MaxPooling2D(pool_size=2)(mean_64x64x32)
-        # previous_mean = NVAEResidualLayer(depth=64)(previous_mean)
-        # previous_mean = Flatten(data_format='channels_last')(previous_mean)
-        # previous_stddev = MaxPooling2D(pool_size=2)(stddev_64x64x32)
-        # previous_stddev = NVAEResidualLayer(depth=64)(previous_stddev)
-        # previous_stddev = Flatten(data_format='channels_last')(previous_stddev)
-        # self.mean_32x32x64 = RelativeMeanLayer()([mean_32x32x64_flat, previous_mean])
-        # self.stddev_32x32x64 = RelativeStddevLayer()([stddev_32x32x64_flat, previous_stddev])
-        # sample_32x32x64 = SimpleSamplingLayer()([self.mean_32x32x64, self.stddev_32x32x64, mask32x32x64_flat])
         sample_32x32x64 = SimpleSamplingLayer()([mean_32x32x64_flat, stddev_32x32x64_flat, mask32x32x64_flat])
         sample_32x32x64 = Reshape((32, 32, 64))(sample_32x32x64)
         # 32x32x128
@@ -603,22 +483,6 @@ class NVAEDecoder128(Architecture):
         # 128x128x32
         net = ConvSN2D(filters=3, kernel_size=3, use_bias=False,
                        data_format='channels_last', padding='same')(net)
-        # return [mean_1x1x2048, stddev_1x1x2048,
-        #         mean_2x2x1024, stddev_2x2x1024,
-        #         mean_4x4x512, stddev_4x4x512,
-        #         mean_8x8x256, stddev_8x8x256,
-        #         mean_16x16x128, stddev_16x16x128,
-        #         mean_32x32x64, stddev_32x32x64,
-        #         mean_64x64x32, stddev_64x64x32,
-        #         mean_128x128x16, stddev_128x128x16,
-        #         mask1x1x2048,
-        #         mask2x2x1024,
-        #         mask4x4x512,
-        #         mask8x8x256,
-        #         mask16x16x128,
-        #         mask32x32x64,
-        #         mask64x64x32,
-        #         mask128x128x16], net
 
         return [mean_4x4x512, stddev_4x4x512,
                 mean_8x8x256, stddev_8x8x256,
@@ -676,10 +540,6 @@ class NVAEAutoEncoder128(Architecture):
         mask_input = Input((128, 128, 1), self.batch_size,
                            name="nvae_mask_input")
         encoder_output = self.encoder_model(sequence_input)
-        # self.mean_1x1x2048 = encoder_output[0]
-        # self.stddev_1x1x2048 = encoder_output[1]
-        # self.mean_2x2x1024 = encoder_output[2]
-        # self.stddev_2x2x1024 = encoder_output[3]
         self.mean_4x4x512 = encoder_output[0]
         self.stddev_4x4x512 = encoder_output[1]
         self.mean_8x8x256 = encoder_output[2]
@@ -721,14 +581,6 @@ class NVAEAutoEncoder128(Architecture):
         return K.mean(K.square(tensor1 - tensor2))
 
     def mask_mse_loss(self, *args, **kwargs):
-        # return self.calculate_mse(K.zeros(self.mask1x1x2048.shape), self.mask1x1x2048) + \
-        #        self.calculate_mse(K.zeros(self.mask2x2x1024.shape), self.mask2x2x1024) + \
-        #        self.calculate_mse(K.zeros(self.mask4x4x512.shape), self.mask4x4x512) + \
-        #        self.calculate_mse(K.zeros(self.mask8x8x256.shape), self.mask8x8x256) + \
-        #        self.calculate_mse(K.zeros(self.mask16x16x128.shape), self.mask16x16x128) + \
-        #        self.calculate_mse(K.zeros(self.mask32x32x64.shape), self.mask32x32x64) + \
-        #        self.calculate_mse(K.zeros(self.mask64x64x32.shape), self.mask64x64x32) + \
-        #        self.calculate_mse(K.zeros(self.mask128x128x16.shape), self.mask128x128x16)
         return self.calculate_mse(K.zeros(self.mask4x4x512.shape), self.mask4x4x512) + \
                self.calculate_mse(K.zeros(self.mask8x8x256.shape), self.mask8x8x256) + \
                self.calculate_mse(K.zeros(self.mask16x16x128.shape), self.mask16x16x128) + \
@@ -737,19 +589,11 @@ class NVAEAutoEncoder128(Architecture):
                self.calculate_mse(K.zeros(self.mask128x128x16.shape), self.mask128x128x16)
 
     def face_kl_loss(self, *args, **kwargs):
-        # return self.calculate_kl_loss(self.mean_1x1x2048, self.stddev_1x1x2048) +\
-        #        self.calculate_kl_loss(self.mean_2x2x1024, self.stddev_2x2x1024) +\
-        #        self.calculate_kl_loss(self.mean_4x4x512, self.stddev_4x4x512) +\
-        #        self.calculate_kl_loss(self.mean_8x8x256, self.stddev_8x8x256) +\
-        #        self.calculate_kl_loss(self.mean_16x16x128, self.stddev_16x16x128) +\
-        #        self.calculate_kl_loss(self.mean_32x32x64, self.stddev_32x32x64) +\
-        #        self.calculate_kl_loss(self.mean_64x64x32, self.stddev_64x64x32) +\
-        #        self.calculate_kl_loss(self.mean_128x128x16, self.stddev_128x128x16)
-        return self.calculate_kl_loss(self.mean_4x4x512, self.stddev_4x4x512) +\
-               self.calculate_kl_loss(self.mean_8x8x256, self.stddev_8x8x256) +\
-               self.calculate_kl_loss(self.mean_16x16x128, self.stddev_16x16x128) +\
-               self.calculate_kl_loss(self.mean_32x32x64, self.stddev_32x32x64) +\
-               self.calculate_kl_loss(self.mean_64x64x32, self.stddev_64x64x32) +\
+        return self.calculate_kl_loss(self.mean_4x4x512, self.stddev_4x4x512) + \
+               self.calculate_kl_loss(self.mean_8x8x256, self.stddev_8x8x256) + \
+               self.calculate_kl_loss(self.mean_16x16x128, self.stddev_16x16x128) + \
+               self.calculate_kl_loss(self.mean_32x32x64, self.stddev_32x32x64) + \
+               self.calculate_kl_loss(self.mean_64x64x32, self.stddev_64x64x32) + \
                self.calculate_kl_loss(self.mean_128x128x16, self.stddev_128x128x16)
 
     def model_loss(self):

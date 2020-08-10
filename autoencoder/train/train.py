@@ -155,7 +155,7 @@ def get_default_hparams():
 
 
 def get_callbacks_dict(auto_encoder, model_params,
-                       test_seq, batch_size,
+                       train_seq, test_seq, batch_size,
                        num_samples, samples_directory):
     """ create a dictionary of all used callbacks """
 
@@ -191,7 +191,13 @@ def get_callbacks_dict(auto_encoder, model_params,
         lambda step: ((model_params.learning_rate - model_params.min_learning_rate) * model_params.decay_rate ** step
                       + model_params.min_learning_rate))
 
-    callbacks_dict['model_diagnoser'] = ModelDiagonoser(test_seq, batch_size, num_samples, samples_directory)
+    train_tensorboard_dir = Path(samples_directory, 'train_tensorboard')
+    train_tensorboard_dir.mkdir(parents=True, exist_ok=True)
+    callbacks_dict['train_model_diagnoser'] = ModelDiagonoser(train_seq, batch_size, num_samples, train_tensorboard_dir)
+
+    test_tensorboard_dir = Path(samples_directory, 'test_tensorboard')
+    test_tensorboard_dir.mkdir(parents=True, exist_ok=True)
+    callbacks_dict['test_model_diagnoser'] = ModelDiagonoser(test_seq, batch_size, num_samples, test_tensorboard_dir)
 
     return callbacks_dict
 
@@ -338,11 +344,11 @@ def train_vae(train_directory, test_directory, samples_directory,
                auto_encoder.face_kl_loss,
                auto_encoder.mask_kl_loss,
                "mae", "mse"]
-    optimizer = Adamax(lr=0.008)
+    optimizer = Adamax(auto_encoder.hps.learning_rate, clipnorm=1.0, clipvalue=0.5)
     model.compile(loss=metric, optimizer=optimizer, metrics=metrics)
 
     callbacks_dict = get_callbacks_dict(auto_encoder, model_params,
-                                        test_seq, batch_size,
+                                        train_seq, test_seq, batch_size,
                                         num_samples, samples_directory)
 
     if checkpoint_path is not None:
@@ -399,11 +405,11 @@ def train_custom_vae(train_directory, test_directory, samples_directory,
                auto_encoder.face_kl_loss,
                auto_encoder.mask_mse_loss,
                "mae", "mse"]
-    optimizer = Adamax(auto_encoder.hps.learning_rate)
+    optimizer = Adamax(auto_encoder.hps.learning_rate, clipnorm=1.0, clipvalue=0.5)
     model.compile(loss=metric, optimizer=optimizer, metrics=metrics)
 
     callbacks_dict = get_callbacks_dict(auto_encoder, model_params,
-                                        test_seq, batch_size,
+                                        train_seq, test_seq, batch_size,
                                         num_samples, samples_directory)
 
     if checkpoint_path is not None:
