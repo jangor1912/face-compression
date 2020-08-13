@@ -276,14 +276,12 @@ class SELayer(K.layers.Layer):
         -   [Squeeze and Excitation Networks](https://arxiv.org/abs/1709.01507)
         """
         init = input_tensor
-        channel_axis = -1  # Assumption that the channels are last
-        filters = init._shape_val[channel_axis]
-        se_shape = (1, 1, filters)
+        se_shape = (1, 1, self.depth)
 
         se = GlobalAveragePooling2D()(init)
         se = Reshape(se_shape)(se)
-        se = Dense(filters // ratio, activation='relu', kernel_initializer='he_normal', use_bias=False)(se)
-        se = Dense(filters, activation='sigmoid', kernel_initializer='he_normal', use_bias=False)(se)
+        se = Dense(self.depth // ratio, activation='relu', kernel_initializer='he_normal', use_bias=False)(se)
+        se = Dense(self.depth, activation='sigmoid', kernel_initializer='he_normal', use_bias=False)(se)
 
         x = K.layers.multiply([init, se])
         return x
@@ -321,7 +319,7 @@ class SELayer(K.layers.Layer):
         return x
 
     def call(self, x, **kwargs):
-        x = self.channel_spatial_squeeze_excite(x, ratio=self.depth)
+        x = self.channel_spatial_squeeze_excite(x, ratio=16)
         return x
 
 
