@@ -2,17 +2,19 @@ import numpy as np
 from tensorflow.python import keras as k
 from tensorflow.python.keras.initializers import glorot_uniform
 from tensorflow.python.keras.layers import Activation, Add, BatchNormalization, Conv2D, ConvLSTM2D, Dense, \
-    DepthwiseConv2D, GlobalAveragePooling2D, Reshape, SeparableConv2D, TimeDistributed, add
+    DepthwiseConv2D, GlobalAveragePooling2D, Reshape, SeparableConv2D, TimeDistributed, add, Dropout
 
 from autoencoder.models.spectral_norm import ConvSN2D, ConvSN2DTranspose
 from autoencoder.models.utils import SELayer, SwishLayer
+
+DROPOUT_RATE = 0.2
 
 
 def mobnet_separable_conv_block(net, num_filters, strides, alpha=1.0):
     net = DepthwiseConv2D(kernel_size=3, padding='same')(net)
     net = BatchNormalization(momentum=0.9997)(net)
     net = Activation('relu')(net)
-    net = Conv2D(np.floor(num_filters * alpha), kernel_size=(1, 1), strides=strides,
+    net = Conv2D(int(np.floor(num_filters * alpha)), kernel_size=(1, 1), strides=strides,
                  use_bias=False, padding='same')(net)
     net = BatchNormalization(momentum=0.9997)(net)
     net = Activation('relu')(net)
@@ -20,7 +22,7 @@ def mobnet_separable_conv_block(net, num_filters, strides, alpha=1.0):
 
 
 def mobnet_conv_block(net, num_filters, kernel_size, strides=1, alpha=1.0):
-    net = Conv2D(np.floor(num_filters * alpha), kernel_size=kernel_size, strides=strides,
+    net = Conv2D(int(np.floor(num_filters * alpha)), kernel_size=kernel_size, strides=strides,
                  use_bias=False, padding='same')(net)
     net = BatchNormalization(momentum=0.9997)(net)
     net = Activation('relu')(net)
@@ -41,7 +43,7 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     #############
     # MAIN PATH #
     #############
-    # First component of main path 
+    # First component of main path
     net = TimeDistributed(ConvSN2D(filters=f1, kernel_size=(1, 1), strides=(s, s),
                                    padding='valid', name=conv_name_base + '2a',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -49,6 +51,7 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Second component of main path
+    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
     net = TimeDistributed(ConvSN2D(filters=f2, kernel_size=(f, f), strides=(1, 1),
                                    padding='same', name=conv_name_base + '2b',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -56,6 +59,7 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Third component of main path
+    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
     net = TimeDistributed(ConvSN2D(filters=f3, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', name=conv_name_base + '2c',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -70,14 +74,17 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     # net_shortcut = BatchNormalization(axis=-1, name=bn_name_base + '1')(net_shortcut)
 
     # nVAE implementation
+    net_shortcut = TimeDistributed(ConvSN2D(filters=f1, kernel_size=(1, 1), strides=(s, s),
+                                   padding='valid', name=conv_name_base + '1a',
+                                   kernel_initializer=glorot_uniform(seed=0)))(net_shortcut)
     net_shortcut = BatchNormalization()(net_shortcut)
     net_shortcut = SwishLayer()(net_shortcut)
-    net_shortcut = TimeDistributed(ConvSN2D(filters=f3, kernel_size=3,
+    net_shortcut = TimeDistributed(ConvSN2D(filters=f3, kernel_size=3, name=conv_name_base + "1b",
                                             use_bias=False, data_format='channels_last',
                                             padding='same'))(net_shortcut)
     net_shortcut = BatchNormalization()(net_shortcut)
     net_shortcut = SwishLayer()(net_shortcut)
-    net_shortcut = TimeDistributed(ConvSN2D(filters=f3, kernel_size=3,
+    net_shortcut = TimeDistributed(ConvSN2D(filters=f3, kernel_size=3, name=conv_name_base + "1c",
                                             use_bias=False, data_format='channels_last',
                                             padding='same'))(net_shortcut)
     net_shortcut = TimeDistributed(SELayer(depth=f3))(net_shortcut)
@@ -108,13 +115,15 @@ def encoder_identity_block(net, f, filters, stage, block):
     net = SwishLayer()(net)
 
     # Second component of main path
+    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
     net = TimeDistributed(ConvSN2D(filters=f2, kernel_size=(f, f), strides=(1, 1),
                                    padding='same', name=conv_name_base + '2b',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
     net = BatchNormalization(axis=-1, name=bn_name_base + '2b')(net)
     net = SwishLayer()(net)
 
-    # Third component of main path 
+    # Third component of main path
+    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
     net = TimeDistributed(ConvSN2D(filters=f3, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', name=conv_name_base + '2c',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -149,6 +158,7 @@ def decoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Second component of main path
+    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
     net = ConvSN2DTranspose(filters=f2, kernel_size=(f, f), strides=(s, s),
                             padding='same', name=conv_name_base + '2b',
                             kernel_initializer=glorot_uniform(seed=0))(net)
@@ -156,6 +166,7 @@ def decoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Third component of main path
+    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
     net = ConvSN2D(filters=f3, kernel_size=(1, 1), strides=(1, 1),
                    padding='same', name=conv_name_base + '2c',
                    kernel_initializer=glorot_uniform(seed=0))(net)
@@ -171,18 +182,19 @@ def decoder_convolutional_block(net, f, filters, stage, block, s=2):
 
     # nVAE implementation
     net_shortcut = BatchNormalization()(net_shortcut)
-    net_shortcut = ConvSN2D(filters=f3, kernel_size=1,
+    net_shortcut = ConvSN2D(filters=f3, kernel_size=1, name=conv_name_base + "1a",
                             use_bias=False, data_format='channels_last',
                             padding='same')(net_shortcut)
     net_shortcut = BatchNormalization()(net_shortcut)
     net_shortcut = SwishLayer()(net_shortcut)
-    net_shortcut = SeparableConv2D(filters=f3, kernel_size=5,
+    net_shortcut = SeparableConv2D(filters=f3, kernel_size=5, name=conv_name_base + "1b",
                                    use_bias=False, data_format='channels_last',
                                    padding='same')(net_shortcut)
     net_shortcut = BatchNormalization()(net_shortcut)
     net_shortcut = SwishLayer()(net_shortcut)
-    net_shortcut = ConvSN2DTranspose(filters=f3, kernel_size=(3, 3), strides=(2, 2),
+    net_shortcut = ConvSN2DTranspose(filters=f3, kernel_size=(3, 3), strides=(s, s),
                                      use_bias=False, data_format='channels_last',
+                                     name=conv_name_base + "1c",
                                      padding='same')(net_shortcut)
     net_shortcut = BatchNormalization()(net_shortcut)
     net_shortcut = SELayer(depth=f3)(net_shortcut)
