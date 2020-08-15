@@ -70,7 +70,7 @@ def populate_directories(videos_dir, train_dir, test_dir):
 
 
 if __name__ == "__main__":
-    videos_path = Path("E:/Magisterka/youtube_dataset/output/cleared/all")
-    train = Path("E:/Magisterka/youtube_dataset/output/cleared/train")
-    test = Path("E:/Magisterka/youtube_dataset/output/cleared/test")
+    videos_path = Path("G:/Magisterka/final_dataset/final_cleared_dataset/all")
+    train = Path("G:/Magisterka/final_dataset/final_cleared_dataset/train")
+    test = Path("G:/Magisterka/final_dataset/final_cleared_dataset/test")
     populate_directories(videos_path, train, test)
