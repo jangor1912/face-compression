@@ -231,9 +231,9 @@ class NVAEDecoder64(Architecture):
         net = decoder_convolutional_block(net, f=3, filters=[64, 64, 32], stage=10, block='a', s=2)
         # net = decoder_convolutional_block(net, f=3, filters=[64, 64, 32], stage=10, block='b', s=1)
         net = decoder_convolutional_block(net, f=3, filters=[32, 32, 16], stage=10, block='c', s=1)
-        net = decoder_convolutional_block(net, f=3, filters=[16, 16, 8], stage=10, block='c', s=1)
+        # net = decoder_convolutional_block(net, f=3, filters=[16, 16, 8], stage=10, block='d', s=1)
 
-        net = Conv2D(filters=3, kernel_size=3, use_bias=False, name="final_convolution",
+        net = Conv2D(filters=3, kernel_size=7, use_bias=False, name="final_convolution",
                      data_format='channels_last', padding='same')(net)
 
         return [mean_4x4x512, stddev_4x4x512,
