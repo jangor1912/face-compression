@@ -1,3 +1,6 @@
+import cv2
+import numpy as np
+
 from autoencoder.models.small_nvae import NVAEAutoEncoder64
 from autoencoder.train.train import get_default_hparams
 from callbacks.callbacks import DotDict
@@ -13,8 +16,9 @@ class Testing(object):
         self.checkpoint_path = checkpoint_path
         self.auto_encoder = self.get_auto_encoder()
         self.face_encoding = None
+        self.input_size = (64, 64)
         self.sequence = NVAESequence(test_directory,
-                                     input_size=(64, 64),
+                                     input_size=self.input_size,
                                      batch_size=1,
                                      encoder_frames_no=encoder_frames_no)
 
@@ -46,9 +50,40 @@ class Testing(object):
                                                                batch_size=1)
         return encoded_face
 
-    def decode_video(self, face_video_path, mask_video_path):
-        last_frame = Deconstructor.get_video_length(face_video_path)
-        video_seq, mask_seq = self.sequence.get_input(face_video_path, mask_video_path, 1,
-                                                      frames_no=last_frame - 1)
-        # TODO Finish it!
-        return
+    def decode_video(self, video_path, mask_path,
+                     encoded_face, output_video_path):
+        start_frame = 0
+        last_frame = Deconstructor.get_video_length(video_path)
+        frames_no = last_frame - 1
+
+        video_writer = cv2.VideoWriter(output_video_path,
+                                       cv2.VideoWriter_fourcc(*"XVID"),
+                                       30, (64, 64))
+
+        frame_generator = Deconstructor.video_to_images(video_path, start_frame=start_frame)
+        mask_generator = Deconstructor.video_to_images(mask_path, start_frame=start_frame)
+        for (frame, frame_no), (mask, mask_no) in zip(frame_generator, mask_generator):
+            if frame_no >= start_frame + frames_no:
+                break
+            frame = cv2.resize(frame, self.input_size, interpolation=cv2.INTER_AREA)
+            mask = cv2.resize(mask, self.input_size, interpolation=cv2.INTER_AREA)
+            mask = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
+            mask = np.array(mask, dtype=np.float32)
+            mask = np.expand_dims(mask, axis=-1)
+            frame = self.sequence.rgb_image_to_np_array(frame)
+            mask = self.sequence.rgb_image_to_np_array(mask)
+
+            # change to batch
+            frame.reshape((1, 64, 64, 3))
+            mask.reshape((1, 64, 64, 1))
+
+            # predict frame output with model
+            encoded_mask = self.auto_encoder.mask_encoder_model.predict(mask,
+                                                                        batch_size=1)
+            decoded_frame = self.auto_encoder.decoder_model.predict(encoded_face + encoded_mask)
+
+            # save to video file
+            decoded_frame = self.sequence.np_img_to_rgb_image(decoded_frame)
+            video_writer.write(decoded_frame)
+
+        video_writer.release()
