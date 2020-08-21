@@ -29,7 +29,8 @@ def mobnet_conv_block(net, num_filters, kernel_size, strides=1, alpha=1.0):
     return net
 
 
-def encoder_convolutional_block(net, f, filters, stage, block, s=2):
+def encoder_convolutional_block(net, f, filters, stage, block, s=2,
+                                dropout_rate=DROPOUT_RATE):
     # Defining name basis
     conv_name_base = 'enc_res' + str(stage) + block + '_branch'
     bn_name_base = 'enc_bn' + str(stage) + block + '_branch'
@@ -51,7 +52,7 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Second component of main path
-    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
+    net = TimeDistributed(Dropout(dropout_rate))(net)
     net = TimeDistributed(ConvSN2D(filters=f2, kernel_size=(f, f), strides=(1, 1),
                                    padding='same', name=conv_name_base + '2b',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -59,7 +60,7 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Third component of main path
-    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
+    net = TimeDistributed(Dropout(dropout_rate))(net)
     net = TimeDistributed(ConvSN2D(filters=f3, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', name=conv_name_base + '2c',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -96,7 +97,8 @@ def encoder_convolutional_block(net, f, filters, stage, block, s=2):
     return net
 
 
-def encoder_identity_block(net, f, filters, stage, block):
+def encoder_identity_block(net, f, filters, stage, block,
+                           dropout_rate=DROPOUT_RATE):
     # Defining name basis
     conv_name_base = 'enc_res' + str(stage) + block + '_branch'
     bn_name_base = 'enc_bn' + str(stage) + block + '_branch'
@@ -115,7 +117,7 @@ def encoder_identity_block(net, f, filters, stage, block):
     net = SwishLayer()(net)
 
     # Second component of main path
-    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
+    net = TimeDistributed(Dropout(dropout_rate))(net)
     net = TimeDistributed(ConvSN2D(filters=f2, kernel_size=(f, f), strides=(1, 1),
                                    padding='same', name=conv_name_base + '2b',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -123,7 +125,7 @@ def encoder_identity_block(net, f, filters, stage, block):
     net = SwishLayer()(net)
 
     # Third component of main path
-    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
+    net = TimeDistributed(Dropout(dropout_rate))(net)
     net = TimeDistributed(ConvSN2D(filters=f3, kernel_size=(1, 1), strides=(1, 1),
                                    padding='valid', name=conv_name_base + '2c',
                                    kernel_initializer=glorot_uniform(seed=0)))(net)
@@ -136,7 +138,8 @@ def encoder_identity_block(net, f, filters, stage, block):
     return net
 
 
-def decoder_convolutional_block(net, f, filters, stage, block, s=2):
+def decoder_convolutional_block(net, f, filters, stage, block, s=2,
+                                dropout_rate=DROPOUT_RATE):
     # Defining name basis
     conv_name_base = 'dec_res' + str(stage) + block + '_branch'
     bn_name_base = 'dec_bn' + str(stage) + block + '_branch'
@@ -158,7 +161,7 @@ def decoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Second component of main path
-    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
+    net = TimeDistributed(Dropout(dropout_rate))(net)
     net = ConvSN2DTranspose(filters=f2, kernel_size=(f, f), strides=(s, s),
                             padding='same', name=conv_name_base + '2b',
                             kernel_initializer=glorot_uniform(seed=0))(net)
@@ -166,7 +169,7 @@ def decoder_convolutional_block(net, f, filters, stage, block, s=2):
     net = SwishLayer()(net)
 
     # Third component of main path
-    net = TimeDistributed(Dropout(DROPOUT_RATE))(net)
+    net = TimeDistributed(Dropout(dropout_rate))(net)
     net = ConvSN2D(filters=f3, kernel_size=(1, 1), strides=(1, 1),
                    padding='same', name=conv_name_base + '2c',
                    kernel_initializer=glorot_uniform(seed=0))(net)

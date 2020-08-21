@@ -21,6 +21,9 @@ class SwishLayer(K.layers.Layer):
         x = Activation(self.swish)(x)
         return x
 
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
 
 class ConvBnRelu(K.Model):
 
@@ -321,6 +324,9 @@ class SELayer(K.layers.Layer):
     def call(self, x, **kwargs):
         x = self.channel_spatial_squeeze_excite(x, ratio=16)
         return x
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
 
 class EncoderResidualLayer(K.layers.Layer):
