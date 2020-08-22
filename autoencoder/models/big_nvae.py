@@ -277,9 +277,9 @@ class BigNVAEDecoder128(Architecture):
         sample64x64x32 = SimpleSamplingLayer()([mean_64x64x32, stddev_64x64x32, mask64x64x32])
         net = concatenate([net, sample64x64x32])
 
-        net = decoder_convolutional_block(net, f=3, filters=[32, 32, 16], stage=10, block='c', s=1,
+        net = decoder_convolutional_block(net, f=3, filters=[32, 32, 16], stage=10, block='c', s=2,
                                           dropout_rate=self.dropout)
-        # net = decoder_convolutional_block(net, f=3, filters=[16, 16, 8], stage=10, block='d', s=1)
+        net = decoder_convolutional_block(net, f=3, filters=[32, 32, 16], stage=10, block='d', s=1)
 
         net = Conv2D(filters=3, kernel_size=7, use_bias=False, name="final_convolution",
                      data_format='channels_last', padding='same')(net)
