@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from tensorflow.python.keras.optimizers import Adamax
 
 from autoencoder.models.small_nvae import NVAEAutoEncoder64
 from autoencoder.train.train import get_default_hparams
@@ -8,7 +9,7 @@ from dataset.batch_generator import NVAESequence
 from video.deconstructor.deconstructor import Deconstructor
 
 
-class Testing(object):
+class SmallNvaeDecoder(object):
     def __init__(self, encoder_frames_no,
                  test_directory,
                  checkpoint_path=None):
@@ -33,7 +34,9 @@ class Testing(object):
                    auto_encoder.face_kl_loss,
                    auto_encoder.mask_mse_loss,
                    "mae", "mse"]
+        optimizer = Adamax(auto_encoder.hps.learning_rate)
         auto_encoder.model.compile(loss=auto_encoder.loss_func,
+                                   optimizer=optimizer,
                                    metrics=metrics)
         if self.checkpoint_path:
             # Load weights:
@@ -45,7 +48,7 @@ class Testing(object):
     def encode_face(self, face_video_path, mask_video_path):
         encoder_seq, _ = self.sequence.get_input(face_video_path, mask_video_path, 0,
                                                  frames_no=self.encoder_frames_no)
-        encoder_seq.reshape((1, self.encoder_frames_no, 64, 64, 3))
+        encoder_seq = encoder_seq.reshape((1, self.encoder_frames_no, 64, 64, 3))
         encoded_face = self.auto_encoder.encoder_model.predict(encoder_seq,
                                                                batch_size=1)
         return encoded_face
@@ -74,8 +77,8 @@ class Testing(object):
             mask = self.sequence.rgb_image_to_np_array(mask)
 
             # change to batch
-            frame.reshape((1, 64, 64, 3))
-            mask.reshape((1, 64, 64, 1))
+            frame = frame.reshape((1, 64, 64, 3))
+            mask = mask.reshape((1, 64, 64, 1))
 
             # predict frame output with model
             encoded_mask = self.auto_encoder.mask_encoder_model.predict(mask,
@@ -83,7 +86,13 @@ class Testing(object):
             decoded_frame = self.auto_encoder.decoder_model.predict(encoded_face + encoded_mask)
 
             # save to video file
-            decoded_frame = self.sequence.np_img_to_rgb_image(decoded_frame)
+            decoded_frame = decoded_frame.reshape((64, 64, 3))
+            decoded_frame += 1.0
+            decoded_frame *= 255.0 / 2.0
+            decoded_frame = np.uint8(decoded_frame)
             video_writer.write(decoded_frame)
+
+            if frame_no % 30 == 0:
+                print(f"Processed {round((frame_no / last_frame * 100), 2)}% of video")
 
         video_writer.release()
