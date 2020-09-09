@@ -62,8 +62,9 @@ class VideoManager(object):
 
 if __name__ == '__main__':
     queries = ["interview", "standup", "vlog", "speech", "music video", "reaction", "talks", "face expression", "news",
-               "daily vlog", "acting", "challenge", "tik tok", "workout", "super model"]
-    manager = VideoManager("/media/jan/Elements SE/Magisterka/youtube_dataset", max_results=100)
+               "daily vlog", "acting", "challenge", "tik tok", "workout", "super model", "actor", "wywiad", "recenzja",
+               "review", "travel", "discussion", "meeting", "vine", "talk", "presentation", "accent", "dykcja"]
+    manager = VideoManager("/media/jan/Elements SE/Magisterka/youtube_dataset_vol_2", max_results=10000)
     try:
         manager.start_processing(queries)
     except HttpError as e:
